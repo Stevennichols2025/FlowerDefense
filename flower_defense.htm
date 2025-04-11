@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html>
+
+
+<head>
+    <title>Flower Defense</title>
+    <link rel="stylesheet" href="styles/flower_defense_stye.css">
+</head> 
+
+
+<body>
+
+    <canvas id="canvas"></canvas>
+
+    <div id="startGameContainer">
+        <div id="startGameText">FLOWER DEFENSE</div>
+        <button id="startGameButton">Start Game</button>
+        <div id="decorativeFlowerRow"></div>
+    </div>
+
+    <div id="score" class="score">0</div>
+    <div id="player">&#x1F33B;</div>
+    <div id="Alien">&#x1f6f8;</div>
+    <div id="alienHealthContainer">
+        <div id="alienHealthBar"></div>
+    </div>
+    <div id="levelMessageContainer"></div>
+    <button id="pauseButton">⏸️</button>
+
+    
+    <!-- Add game over container -->
+    <div id="gameOverContainer">
+        <div id="gameOverText">GAME OVER</div>
+        <button id="playAgainButton">Play Again</button>
+    </div>
+
+    <script src="scripts/particle.js"></script>
+    <script>
+        // Global variables for responsive sizing
+        let WINDOW_WIDTH, WINDOW_HEIGHT, BORDER_MARGIN, GAME_WIDTH, GAME_HEIGHT;
+        let PLAYER_SIZE, BALL_SIZE, ALIEN_SIZE;
+
+        let gameLevel = 1; 
+        let gameIntervals;
+        
+        // This function will be called again if the window is resized 
+        function setCharacterSizes() {
+            WINDOW_WIDTH = window.innerWidth;
+            WINDOW_HEIGHT = window.innerHeight;
+            BORDER_MARGIN = Math.min(WINDOW_WIDTH, WINDOW_HEIGHT) * 0.02;
+            GAME_WIDTH = WINDOW_WIDTH - (BORDER_MARGIN * 2);
+            GAME_HEIGHT = WINDOW_HEIGHT - (BORDER_MARGIN * 2);
+            PLAYER_SIZE = Math.min(WINDOW_WIDTH, WINDOW_HEIGHT) * .1;
+            BALL_SIZE = Math.min(WINDOW_WIDTH, WINDOW_HEIGHT) * .1;
+            ALIEN_SIZE = Math.min(WINDOW_WIDTH, WINDOW_HEIGHT) * 0.2;
+        }
+
+        // Call setCharacterSizes immediately to initialize values
+        setCharacterSizes();
+
+        // Hide game elements initially
+        document.getElementById('score').style.display = 'none';
+        document.getElementById('player').style.display = 'none';
+        document.getElementById('Alien').style.display = 'none';
+        document.getElementById('pauseButton').style.display = 'none';
+        document.getElementById('alienHealthContainer').style.display = 'none';
+
+       
+
+        // Initialize game function
+        function initializeGame() {
+            // Clear any existing intervals first
+            if (gameIntervals) {
+                for (let interval in gameIntervals) {
+                    clearInterval(gameIntervals[interval]);
+                }
+            }
+            
+            // Responsive sizing constants
+            setCharacterSizes(); 
+           
+            // Show game elements
+            document.getElementById('score').style.display = 'block';
+            document.getElementById('player').style.display = 'block';
+            document.getElementById('pauseButton').style.display = 'block';
+            document.getElementById('alienHealthContainer').style.display = 'block';
+            
+            // Hide start screen (which includes the decorative flowers)
+            document.getElementById('startGameContainer').style.display = 'none';
+
+            // Start background music
+            startBackgroundMusic();
+
+            // Initialize game state
+            isGamePaused = false;
+
+            // Reset player position
+            playerX = WINDOW_WIDTH / 2;
+            player.style.left = `${playerX}px`;
+            player.style.bottom = `${BORDER_MARGIN + BOTTOM_BORDER_OFFSET -25}px`;
+
+            // Create initial game elements
+            draw();
+            createAlien();  
+            document.getElementById('Alien').style.display = 'block';  
+            createBall();
+            
+            if (gameLevel === 1) {
+                addFlowers();
+            }
+
+            // Start game intervals with fresh set
+            gameIntervals = {
+                createBall: setInterval(createBall, 2000),
+                moveBalls: setInterval(moveBalls, 20),
+                moveAlien: setInterval(moveAlien, 20),
+                updatePlayer: setInterval(updatePlayer, 15),
+                moveLasers: setInterval(moveLasers, 20)
+            };
+        }
+
+        // Add start button listener
+        document.getElementById('startGameButton').addEventListener('click', initializeGame);
+
+        // Modify restart game function to use initialization
+        function restartGame(levelUp = false) {
+            // Hide game over screen if it's showing
+            document.getElementById('gameOverContainer').style.display = 'none';
+            
+            // Clear existing balls
+            while(balls.length > 0) {
+                const ball = balls.pop();
+                ball.destroy();
+            }
+
+            // Clear existing lasers
+            while(lasers.length > 0) {
+                const laser = lasers.pop();
+                laser.destroy();
+            }
+
+            // Reset and recreate alien
+            const oldAlien = aliens.pop();
+            if (oldAlien && oldAlien.element) {
+                oldAlien.element.remove();
+            }
+            
+            if (!levelUp) {
+                // Only reset score and flowers if not leveling up
+                score = 0;
+                document.getElementById('score').innerHTML = '0';
+                
+                // Clear existing flowers
+                const flowers = document.getElementsByClassName('static-flower');
+                while(flowers.length > 0) {
+                    flowers[0].remove();
+                }
+                addFlowers();
+            }
+
+            // Initialize fresh game
+            initializeGame();
+        }
+
+       
+
+        // Update element sizes
+        document.getElementById('player').style.fontSize = `${PLAYER_SIZE}px`;
+        document.getElementById('Alien').style.fontSize = `${ALIEN_SIZE}px`;
+        document.getElementById('score').style.fontSize = `${Math.min(WINDOW_WIDTH, WINDOW_HEIGHT) * 0.10}px`;
+        document.getElementById('score').style.top = '3px';
+
+        // Initialize canvas
+        const canvas = document.querySelector('#canvas');
+        canvas.width = WINDOW_WIDTH;
+        canvas.height = WINDOW_HEIGHT;
+        
+        const BORDER_WIDTH = 100;
+        const BOTTOM_BORDER_WIDTH = 200;
+        const BORDER_OFFSET = BORDER_WIDTH / 2;
+        const BOTTOM_BORDER_OFFSET = BOTTOM_BORDER_WIDTH / 2;
+
+        // Add game state variable
+        let isGamePaused = false;
+
+
+        var score = 0;
+        cMAXBALLS = 10;
+        cPARTICLES = true;
+
+        const LASER_SOUND = new Audio('sounds/laser_fire.mp3');
+        const SPACESHIP_HIT_SOUND = new Audio('sounds/spaceship_hit.mp3');
+        const FLOWER_HIT_SOUND = new Audio('sounds/flower_hit.mp3');
+        const BACKGROUND_MUSIC = new Audio('sounds/space-ranger-moire-main-version-03-04-10814.mp3');
+
+         // Set volume levels
+        BACKGROUND_MUSIC.volume = 0.5;  // Background music at 30% volume
+        LASER_SOUND.volume = 0.7;       // Sound effects at 70% volume
+        SPACESHIP_HIT_SOUND.volume = 0.7;
+        FLOWER_HIT_SOUND.volume = 0.7;
+        
+        BACKGROUND_MUSIC.loop = true;  // Make the music loop continuously
+
+        // Function to handle background music
+        function startBackgroundMusic() {
+            BACKGROUND_MUSIC.currentTime = 0;  // Reset to start
+            BACKGROUND_MUSIC.play();
+        }
+       
+        function addFlowers() {
+              // Add 4 baby flowers, these must be protected or it is game over! 
+              const positions = [-62, -14, 35, 88];
+              varFlowerNum = 0;
+
+            positions.forEach(pos => {
+                varFlowerNum += 1; 
+                const flower = document.createElement('div');
+                flower.className = 'static-flower';
+                flower.style.left = `calc(50% + ${pos}px)`;
+                // Add different animation delay for each flower
+                flower.style.setProperty('--pulse-delay', `${varFlowerNum * 0.3}s`);
+                
+                if (varFlowerNum % 2 === 0) {
+                   flower.innerHTML = '&#x1F33A;'
+                }else {
+                    flower.innerHTML = '&#x1F337;'
+                }
+               
+                document.body.appendChild(flower);
+            });
+        }
+        function draw() {
+            const canvas = document.querySelector('#canvas');
+            if (!canvas.getContext) {
+                return;
+            }
+            const ctx = canvas.getContext('2d');
+
+            // Clear with black background
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.strokeStyle = 'gold';
+            
+            // Draw top border
+            ctx.lineWidth = BORDER_WIDTH;
+            ctx.beginPath();
+            ctx.moveTo(BORDER_MARGIN, BORDER_MARGIN);
+            ctx.lineTo(GAME_WIDTH + BORDER_MARGIN, BORDER_MARGIN);
+            ctx.stroke();
+
+            // Draw right border
+            ctx.beginPath();
+            ctx.moveTo(GAME_WIDTH + BORDER_MARGIN, BORDER_MARGIN);
+            ctx.lineTo(GAME_WIDTH + BORDER_MARGIN, GAME_HEIGHT + BORDER_MARGIN);
+            ctx.stroke();
+
+            // Draw left border
+            ctx.beginPath();
+            ctx.moveTo(BORDER_MARGIN, BORDER_MARGIN);
+            ctx.lineTo(BORDER_MARGIN, GAME_HEIGHT + BORDER_MARGIN);
+            ctx.stroke();
+
+            // Draw bottom border with gap in center
+            ctx.lineWidth = BOTTOM_BORDER_WIDTH;
+            
+            // Left section of bottom border
+            ctx.beginPath();
+            ctx.moveTo(BORDER_MARGIN - BORDER_WIDTH/2, GAME_HEIGHT + BORDER_MARGIN);
+            ctx.lineTo((WINDOW_WIDTH/2) - 100, GAME_HEIGHT + BORDER_MARGIN);
+            ctx.stroke();
+            
+            // Right section of bottom border
+            ctx.beginPath();
+            ctx.moveTo((WINDOW_WIDTH/2) + 100, GAME_HEIGHT + BORDER_MARGIN);
+            ctx.lineTo(GAME_WIDTH + BORDER_MARGIN + BORDER_WIDTH/2, GAME_HEIGHT + BORDER_MARGIN);
+            ctx.stroke();
+        }
+
+        // ****** Laser Class *****************************
+        class Laser {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.speed = 25;  // Define a consistent speed
+            }
+
+            move() {
+                this.y -= this.speed;  // Move up by speed amount
+                this.element.style.left = `${this.x}px`;
+                this.element.style.top = `${this.y}px`;
+            }
+
+            create() {
+                const laserElement = document.createElement('div');
+                laserElement.className = 'laser';
+                laserElement.textContent = '|';
+                laserElement.style.left = `${this.x}px`;
+                laserElement.style.top = `${this.y}px`;
+                document.body.appendChild(laserElement);
+                this.element = laserElement;
+            }
+
+            destroy() {
+                if (this.element && this.element.parentNode) {
+                    this.element.parentNode.removeChild(this.element);
+                }
+            }
+        }
+        // ******** end of laser class *********
+
+        class Alien {
+            constructor(size, color, x, y, speed) {
+                this.size = size;
+                this.color = color;
+                this.x = x;
+                this.y = y;
+                this.speed = speed;
+                this.isHit = false;
+                this.health = 100;  // Full health
+            }
+
+            create() {
+                let alienElement = document.getElementById("Alien");
+                if (!alienElement) {
+                    // Only create new element if it doesn't exist
+                    alienElement = document.createElement('div');
+                    alienElement.id = 'Alien';
+                    alienElement.innerHTML = '&#x1f6f8;';
+                    document.body.appendChild(alienElement);
+                }
+                alienElement.className = 'alien';
+                alienElement.style.width = this.size + 'px';
+                alienElement.style.height = this.size + 'px';
+                alienElement.style.fontSize = `${ALIEN_SIZE}px`;
+                this.element = alienElement;
+
+                // Reset health bar
+                document.getElementById('alienHealthBar').style.width = '100%';
+            }
+
+            takeDamage() {
+                this.health = Math.max(0, this.health - 5);  // Decrease by 5%, but not below 0
+                document.getElementById('alienHealthBar').style.width = `${this.health}%`;
+                
+                if (this.health <= 0) {
+                    this.defeat();
+                }
+            }
+
+            defeat() {
+                // Create big explosion effect
+                const explosion = document.createElement('div');
+                explosion.className = 'big-explosion';
+                explosion.style.left = (this.x + this.size/2 - 100) + 'px';
+                explosion.style.top = (this.y + this.size/2 - 100) + 'px';
+                document.body.appendChild(explosion);
+
+                // Add defeat animation to alien
+                this.element.classList.add('alien-defeat');
+
+                // Play explosion sound
+                SPACESHIP_HIT_SOUND.currentTime = 0;
+                SPACESHIP_HIT_SOUND.play();
+
+                // Show level complete message
+                showLevelComplete();
+
+                // Pause game after animation
+                setTimeout(() => {
+                    isGamePaused = true;
+                    // Clear all intervals
+                    for (let interval in gameIntervals) {
+                        clearInterval(gameIntervals[interval]);
+                    }
+                    // Hide health bar
+                    document.getElementById('alienHealthContainer').style.display = 'none';
+                    
+                    // Remove explosion effect
+                    explosion.remove();
+                }, 2000);
+            }
+
+            move() {
+                this.x += this.speed;
+
+                // Account for border width in boundaries
+                if (this.x < BORDER_MARGIN + BORDER_OFFSET || 
+                    this.x > GAME_WIDTH + BORDER_MARGIN - BORDER_OFFSET - this.size) {
+                    this.speed = this.speed * -1;
+                }
+
+                this.element.style.left = this.x + 'px';
+                this.element.style.top = this.y + 'px';
+            }
+
+            createExplosion() {
+                const numParticles = 60;
+                const explosionContainer = document.createElement('div');
+                explosionContainer.style.position = 'absolute';
+                explosionContainer.style.left = (this.x + this.size/2) + 'px';
+                explosionContainer.style.top = (this.y + this.size/2) + 'px';
+                explosionContainer.style.zIndex = '1000';
+                
+                for (let i = 0; i < numParticles; i++) {
+                    const particle = document.createElement('div');
+                    particle.className = 'explosion-particle';
+                    
+                    // Calculate random direction for each particle
+                    const angle = (i / numParticles) * 360 + Math.random() * 30;
+                    const distance = 50 + Math.random() * 30;
+                    const tx = Math.cos(angle * Math.PI / 180) * distance;
+                    const ty = Math.sin(angle * Math.PI / 180) * distance;
+                    
+                    particle.style.setProperty('--tx', `${tx}px`);
+                    particle.style.setProperty('--ty', `${ty}px`);
+                    
+                    explosionContainer.appendChild(particle);
+                }
+                
+                document.body.appendChild(explosionContainer);
+                
+                // Remove explosion container after animation
+                setTimeout(() => {
+                    if (explosionContainer.parentNode) {
+                        explosionContainer.parentNode.removeChild(explosionContainer);
+                    }
+                }, 600);
+            }
+
+            flash() {
+                if (!this.isHit) {
+                    this.isHit = true;
+                    
+                    // Create explosion effect
+                    this.createExplosion();
+
+                    // Add wobble animation
+                    this.element.classList.add('wobble');
+                    
+                    // Remove wobble after animation
+                    setTimeout(() => {
+                        this.element.classList.remove('wobble');
+                        this.isHit = false;
+                    }, 300);
+                }
+            }
+
+            isColliding(x, y, size) {
+                const alienCenterX = this.x + this.size/2;
+                const alienCenterY = this.y + this.size/2;
+                const targetCenterX = x + size/2;
+                const targetCenterY = y + size/2;
+
+                const dx = alienCenterX - targetCenterX;
+                const dy = alienCenterY - targetCenterY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                return distance < (this.size/2 + size/2);
+            }
+        }
+
+        class Ball {
+            constructor(size, color, x, y, speed, angle) {
+                this.size = BALL_SIZE;
+                this.color = color;
+                this.x = x;
+                this.y = y;
+                this.speed = speed * (GAME_WIDTH / 1500);
+                this.angle = angle;
+            }
+            create() {
+                const ballElement = document.createElement('div');
+                ballElement.className = 'ball';
+                ballElement.style.width = this.size + 'px';
+                ballElement.style.height = this.size + 'px';
+                ballElement.innerHTML = '&#x1F47D;';
+                ballElement.style.fontSize = `${this.size}px`;
+                ballElement.style.color = this.color;
+                document.body.appendChild(ballElement);
+                this.element = ballElement;
+            }
+
+            destroy() {
+                this.element.parentNode.removeChild(this.element);
+            }
+            move() {
+                const radianAngle = (this.angle * Math.PI) / 180;
+                const xSpeed = Math.cos(radianAngle) * this.speed;
+                const ySpeed = Math.sin(radianAngle) * this.speed;
+
+                this.x += xSpeed;
+                this.y += ySpeed;
+
+                // Check side boundaries
+                if (this.x < BORDER_MARGIN + BORDER_OFFSET || 
+                    this.x > GAME_WIDTH + BORDER_MARGIN - BORDER_OFFSET - this.size) {
+                    this.angle = 180 - this.angle;
+                }
+
+                // Check top boundary
+                if (this.y < BORDER_MARGIN + BORDER_OFFSET) {
+                    this.angle = 360 - this.angle;
+                }
+
+                // Check bottom boundary and flower collisions
+                if (this.y > GAME_HEIGHT + BORDER_MARGIN - BOTTOM_BORDER_OFFSET - this.size) {
+                    const ballCenterX = this.x + this.size/2;
+                    const gapStart = (WINDOW_WIDTH/2) - 100;
+                    const gapEnd = (WINDOW_WIDTH/2) + 100;
+                    
+                    // Check for collision with gap edges
+                    if (ballCenterX < gapStart + this.size/2 && ballCenterX > gapStart - this.size/2) {
+                        // Hit left edge of gap - bounce like left wall
+                        this.angle = 180 - this.angle;
+                        // this.x = gapStart - this.size/2;  // Push ball away from edge
+                    } else if (ballCenterX > gapEnd - this.size/2 && ballCenterX < gapEnd + this.size/2) {
+                        // Hit right edge of gap - bounce like right wall
+                        this.angle = 180 - this.angle;
+                        // this.x = gapEnd + this.size/2;  // Push ball away from edge
+                    } else if (ballCenterX < gapStart || ballCenterX > gapEnd) {
+                        // Normal bottom border bounce
+                        this.angle = 360 - this.angle;
+                    } else {
+                        // Ball is in the gap - check for flower collisions
+                        const flowers = document.getElementsByClassName('static-flower');
+                        let hitflower = false;
+                        
+                        for (let flower of flowers) {
+                            const flowerRect = flower.getBoundingClientRect();
+                            
+                            // Improve collision detection accuracy
+                            const ballCenterX = this.x + this.size/2;
+                            const ballCenterY = this.y + this.size/2;
+                            const flowerCenterX = flowerRect.left + flowerRect.width/2;
+                            const flowerCenterY = flowerRect.top + flowerRect.height/2;
+                            
+                            const dx = ballCenterX - flowerCenterX;
+                            const dy = ballCenterY - flowerCenterY;
+                            const distance = Math.sqrt(dx * dx + dy * dy);
+                            
+                            if (distance < (this.size/2 + flowerRect.width/2)) {
+                                createFlowerDeathAnimation(flower);
+                                setTimeout(() => {
+                                    flower.remove();
+                                    // Check for game over after flower is removed
+                                    if (document.getElementsByClassName('static-flower').length === 0) {
+                                        // Delay game over to allow animation to complete
+                                        setTimeout(() => {
+                                            endGame();
+                                        }, 1000);
+                                    }
+                                }, 100);
+                                
+                                this.destroy();
+                                balls.splice(balls.indexOf(this), 1);
+                                hitflower = true;
+                                return;
+                            }
+                        }
+
+                        // If ball is in gap area but didn't hit a flower, remove it
+                        if (!hitflower && this.y > GAME_HEIGHT + BORDER_MARGIN - BOTTOM_BORDER_OFFSET) {
+                            this.destroy();
+                            balls.splice(balls.indexOf(this), 1);
+                            return;
+                        }
+                    }
+                }
+
+                this.element.style.left = this.x + 'px';
+                this.element.style.top = this.y + 'px';
+            }
+            isColliding(x, y, size) {
+                const ballCenterX = this.x + this.size/2;
+                const ballCenterY = this.y + this.size/2;
+                const targetCenterX = x + size/2;
+                const targetCenterY = y + size/2;
+
+                const dx = ballCenterX - targetCenterX;
+                const dy = ballCenterY - targetCenterY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                return distance < (this.size/2 + size/2);
+            }
+
+            createExplosion() {
+                const numParticles = 12;
+                const explosionContainer = document.createElement('div');
+                explosionContainer.style.position = 'absolute';
+                explosionContainer.style.left = (this.x + this.size/2) + 'px';
+                explosionContainer.style.top = (this.y + this.size/2) + 'px';
+                explosionContainer.style.zIndex = '1000';
+                
+                for (let i = 0; i < numParticles; i++) {
+                    const particle = document.createElement('div');
+                    particle.style.position = 'absolute';
+                    particle.style.width = '6px';
+                    particle.style.height = '6px';
+                    particle.style.backgroundColor = this.color;
+                    particle.style.borderRadius = '50%';
+                    particle.style.pointerEvents = 'none';
+                    
+                    // Calculate random direction for each particle
+                    const angle = (i / numParticles) * 360 + Math.random() * 30;
+                    const distance = 30 + Math.random() * 20;
+                    const tx = Math.cos(angle * Math.PI / 180) * distance;
+                    const ty = Math.sin(angle * Math.PI / 180) * distance;
+                    
+                    // Add animation
+                    particle.style.animation = 'explode 0.3s ease-out forwards';
+                    particle.style.setProperty('--tx', `${tx}px`);
+                    particle.style.setProperty('--ty', `${ty}px`);
+                    
+                    explosionContainer.appendChild(particle);
+                }
+                
+                document.body.appendChild(explosionContainer);
+                
+                // Remove explosion container after animation
+                setTimeout(() => {
+                    if (explosionContainer.parentNode) {
+                        explosionContainer.parentNode.removeChild(explosionContainer);
+                    }
+                }, 300);
+            }
+        }
+        const balls = [];
+        const lasers = [];
+        const aliens = [];
+
+        function createAlien() {
+            const x = GAME_WIDTH / 3 + BORDER_MARGIN + BORDER_OFFSET;
+            const y = BORDER_MARGIN + BORDER_OFFSET - 50;
+            const speed = 5 * (GAME_WIDTH / 1500);
+            const alien = new Alien(ALIEN_SIZE, getRandomColor(), x, y, speed);
+            alien.create();
+            aliens.push(alien);
+        }
+
+        function calculateAngleToTarget(startX, startY, targetX, targetY) {
+            const dx = targetX - startX;
+            const dy = targetY - startY;
+            let angle = Math.atan2(dy, dx) * 180 / Math.PI;
+            return angle;
+        }
+
+        function calculateBankShot(startX, startY, targetX, targetY) {
+            // Choose either left or right wall for the bank
+            const useLeftWall = Math.random() < 0.5;
+            const wallX = useLeftWall ? (BORDER_MARGIN + BORDER_OFFSET) : (GAME_WIDTH + BORDER_MARGIN - BORDER_OFFSET);
+            
+            // Find a reflection point that would reach the target
+            // Using similar triangles principle for reflection
+            const dx = targetX - wallX;
+            const dy = targetY - startY;
+            
+            // Calculate wall Y position that would result in hitting the target
+            // For left wall: targetX - wallX = positive
+            // For right wall: targetX - wallX = negative
+            // This ensures the reflection angle works for both walls
+            const wallY = startY + (dy / 2);  // Midpoint in Y direction
+            
+            // Verify the wall Y is within bounds
+            const minWallY = BORDER_MARGIN + BORDER_OFFSET;
+            const maxWallY = GAME_HEIGHT + BORDER_MARGIN - BORDER_OFFSET * 2;
+            const clampedWallY = Math.max(minWallY, Math.min(maxWallY, wallY));
+            
+            // Calculate angle to the reflection point
+            const angleToWall = calculateAngleToTarget(startX, startY, wallX, clampedWallY);
+            
+            return angleToWall;
+        }
+
+        function createBall(shotType = 'random') {
+            // Level 1 - 10 ball max, Level 2 : 14 ball max, level 3 : 
+            if (balls.length > cMAXBALLS + ((gameLevel - 1) * (2 * gameLevel))) {
+                return;
+            }
+
+            const x = aliens[0].x;
+            const y = BORDER_MARGIN + BORDER_OFFSET;
+            const speed = 5 * (GAME_WIDTH / 1500);
+
+            // Get flower positions
+            const flowers = document.getElementsByClassName('static-flower');
+            if (flowers.length > 0) {
+                // Randomly select a flower to target
+                const targetIndex = Math.floor(Math.random() * flowers.length);
+                const flowerRect = flowers[targetIndex].getBoundingClientRect();
+                const targetX = flowerRect.left + (flowerRect.width / 2);
+                const targetY = flowerRect.top + (flowerRect.height / 2);
+
+                let angle;
+                // Determine shot type based on parameter
+
+                if (shotType === 'random') {
+                    // 50% chance for direct shot vs bank shot
+                    shotType = Math.random() < 0.5 ? 'direct' : 'bank';
+                }
+
+                if (shotType === 'direct') {
+                    angle = calculateAngleToTarget(x, y, targetX, targetY);
+                } else {
+                    // shotType === 'bank'
+                    angle = calculateBankShot(x, y, targetX, targetY);
+                }
+                
+                // Create ball with calculated angle
+                const ball = new Ball(BALL_SIZE, getRandomColor(), x, y, speed, angle);
+                ball.create();
+                balls.push(ball);
+            }
+        }
+
+
+        function getRandomColor() {
+            const letters = '0123456789ABCDEF';
+            let color = '#';
+            for (let i = 0; i < 6; i++) {
+                color += letters[Math.floor(Math.random() * 16)];
+            }
+            return color;
+        }
+
+        function moveAlien() {
+            aliens[0].move();
+        }
+
+        function moveBalls() {
+
+            for (let i = 0; i < balls.length; i++) {
+                balls[i].move();
+            }
+        }
+
+        // Player movement
+        const player = document.getElementById('player');
+        let playerX = WINDOW_WIDTH / 2;
+        player.style.bottom = `${BORDER_MARGIN + BOTTOM_BORDER_OFFSET - 25}px`;
+        player.style.left = `${playerX}px`;
+        let isMovingLeft = false;
+        let isMovingRight = false;
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'ArrowLeft') {
+                isMovingLeft = true;
+            } else if (event.key === 'ArrowRight') {
+                isMovingRight = true;
+            }
+        });
+
+        document.addEventListener('keyup', function (event) {
+            if (event.key === 'ArrowLeft') {
+                isMovingLeft = false;
+            } else if (event.key === 'ArrowRight') {
+                isMovingRight = false;
+            }
+        });
+
+        function updatePlayer() {
+            if (isGamePaused) return;
+            if (isMovingLeft) {
+                playerX -= GAME_WIDTH / 150;
+            } else if (isMovingRight) {
+                playerX += GAME_WIDTH / 150;
+            }
+
+            // Account for border width in boundaries and keep player above bottom border
+            playerX = Math.max(BORDER_MARGIN + BORDER_OFFSET, 
+                             Math.min(playerX, GAME_WIDTH + BORDER_MARGIN - BORDER_OFFSET));
+            player.style.left = playerX + 'px';
+            player.style.bottom = `${BORDER_MARGIN + BOTTOM_BORDER_OFFSET -25}px`;
+        }
+
+        // Window resize handling
+        window.addEventListener('resize', function() {
+            
+            setCharacterSizes(); 
+
+            // Update canvas size
+            canvas.width = WINDOW_WIDTH;
+            canvas.height = WINDOW_HEIGHT;
+
+            // Update element sizes
+            document.getElementById('player').style.fontSize = `${PLAYER_SIZE}px`;
+            document.getElementById('Alien').style.fontSize = `${ALIEN_SIZE}px`;
+            document.getElementById('score').style.fontSize = `${Math.min(WINDOW_WIDTH, WINDOW_HEIGHT) * 0.08}px`;
+            document.getElementById('score').style.top = '30px';
+
+            // Redraw border
+            draw();
+        });
+
+        
+        // Laser firing
+        cMAX_LASERS_AT_ONCE = 4
+       
+        document.addEventListener('keydown', function (event) {
+          
+            if (event.key === ' ' && !isGamePaused) {
+                // Create a new laser and add to lasers collection unless max number of lasers are already on screen 
+                if (lasers.length < cMAX_LASERS_AT_ONCE) {
+                    const laser = new Laser(playerX, GAME_HEIGHT + BORDER_MARGIN - (BOTTOM_BORDER_WIDTH * .5));
+                    laser.create();
+                    lasers.push(laser);
+                    LASER_SOUND.currentTime = 0; 
+                    LASER_SOUND.play();
+                   
+                }
+                }
+        });
+
+        // Separate laser movement and collision detection into its own function
+        function moveLasers() {
+          
+            if (isGamePaused) return;
+            
+            for (let i = 0; i < lasers.length; i++) {
+                const laser = lasers[i];
+                laser.move();
+                
+                // Check for alien collision first
+                if (aliens[0].isColliding(laser.x, laser.y, 20)) {
+                    laser.destroy();
+                    lasers.splice(i, 1);
+                    i--;
+                    
+                    aliens[0].takeDamage();  // Decrease alien health
+                    createBall("bank");
+                    createBall("bank");
+                    createBall("bank");
+                    createBall("bank");
+
+                    score += 5; // Award 5 points for hitting the alien
+                    SPACESHIP_HIT_SOUND.currentTime = 0; 
+                    SPACESHIP_HIT_SOUND.play(); 
+
+                    document.getElementById('score').innerHTML = score.toString();
+                    aliens[0].flash(); // Add flash effect when hit
+                    continue;
+                }
+                
+                // Check for laser / ball collisions
+                for (let j = 0; j < balls.length; j++) {
+                    const ball = balls[j];
+                    if (ball.isColliding(laser.x, laser.y, 10)) {
+                        ball.createExplosion(); // Add explosion effect before destroying the ball
+                        
+                        laser.destroy();
+                        lasers.splice(i, 1);
+                        i--;
+                        
+                        ball.destroy();
+                        balls.splice(j, 1);
+                        
+                        score++;
+                        document.getElementById('score').innerHTML = score.toString();
+                        break;
+                    }
+                }
+                
+                // Remove lasers that go off screen
+                if (i >= 0 && laser.y <= BORDER_MARGIN) {
+                    laser.destroy();
+                    lasers.splice(i, 1);
+                    i--;
+                }
+            }
+        }
+
+        // ******* end of Laser Movement and Collision **************
+        const CANVAS = document.getElementsByTagName("canvas")[0],
+            CTX = CANVAS.getContext("2d"),
+            W = GAME_WIDTH,
+            H = GAME_HEIGHT,
+            XO = W / 2 + BORDER_MARGIN,
+            YO = H / 2 + BORDER_MARGIN,
+            NUM_PARTICLES = Math.floor((WINDOW_WIDTH * WINDOW_HEIGHT) / 8000),
+            MAX_Z = 2,
+            MAX_R = Math.min(WINDOW_WIDTH, WINDOW_HEIGHT) * 0.001,
+            Z_SPD = 1,
+            PARTICLES = [];
+
+        
+
+        function loop() {
+            requestAnimationFrame(loop);
+            
+            CTX.save();
+            
+            // Clip to exact inner border boundaries, accounting for bottom border
+            CTX.beginPath();
+            CTX.rect(BORDER_MARGIN + BORDER_OFFSET, 
+                    BORDER_MARGIN + BORDER_OFFSET, 
+                    GAME_WIDTH - BORDER_WIDTH, 
+                    GAME_HEIGHT - BORDER_WIDTH - (BOTTOM_BORDER_WIDTH - BORDER_WIDTH));
+            CTX.clip();
+            
+            CTX.fillStyle = "rgba(0,0,0,0.15)";
+            CTX.fillRect(BORDER_MARGIN + BORDER_OFFSET, 
+                        BORDER_MARGIN + BORDER_OFFSET, 
+                        GAME_WIDTH - BORDER_WIDTH, 
+                        GAME_HEIGHT - BORDER_WIDTH - (BOTTOM_BORDER_WIDTH - BORDER_WIDTH));
+            
+            if (cPARTICLES) {
+                render();
+            }
+            
+            CTX.restore();
+            
+            draw();
+        }
+
+        function createParticles() {
+            for (let i = 0; i < NUM_PARTICLES; i++) {
+                const X = Math.random() * W, Y = Math.random() * H, Z = Math.random() * MAX_Z;
+                PARTICLES.push(new Particle(X, Y, Z));
+            }
+        }
+
+             
+        // Add pause button functionality
+        const pauseButton = document.getElementById('pauseButton');
+        pauseButton.style.bottom = `${BORDER_MARGIN + BORDER_OFFSET - 50}px`;
+        
+        pauseButton.addEventListener('click', function() {
+            isGamePaused = !isGamePaused;
+            if (isGamePaused) {
+                pauseButton.textContent = '▶️'; // Play symbol
+                // Clear all intervals
+                for (let interval in gameIntervals) {
+                    clearInterval(gameIntervals[interval]);
+                }
+                BACKGROUND_MUSIC.pause();  // Pause the music
+            } else {
+                pauseButton.textContent = '⏸️'; // Pause symbol
+                // Restart all game intervals
+                gameIntervals = {
+                    createBall: setInterval(createBall, 2000),
+                    moveBalls: setInterval(moveBalls, 20),
+                    moveAlien: setInterval(moveAlien, 20),
+                    updatePlayer: setInterval(updatePlayer, 15),
+                    moveLasers: setInterval(moveLasers, 20)
+                };
+                BACKGROUND_MUSIC.play();  // Resume the music
+            }
+        });
+
+        // Modify movement functions to respect pause state
+        function moveBalls() {
+            if (isGamePaused) return;
+            for (let i = 0; i < balls.length; i++) {
+                balls[i].move();
+            }
+        }
+
+        function moveAlien() {
+            if (isGamePaused) return;
+            aliens[0].move();
+        }
+
+        function updatePlayer() {
+            if (isGamePaused) return;
+            if (isMovingLeft) {
+                playerX -= GAME_WIDTH / 150;
+            } else if (isMovingRight) {
+                playerX += GAME_WIDTH / 150;
+            }
+
+            // Account for border width in boundaries and keep player above bottom border
+            playerX = Math.max(BORDER_MARGIN + BORDER_OFFSET, 
+                             Math.min(playerX, GAME_WIDTH + BORDER_MARGIN - BORDER_OFFSET));
+            player.style.left = playerX + 'px';
+            player.style.bottom = `${BORDER_MARGIN + BOTTOM_BORDER_OFFSET -25}px`;
+        }
+
+        // Add game over function
+        function endGame() {
+            isGamePaused = true;
+            
+            // Clear all intervals
+            for (let interval in gameIntervals) {
+                    clearInterval(gameIntervals[interval]);
+                }
+
+            BACKGROUND_MUSIC.pause();  // Stop the music
+
+            // Show game over screen
+            document.getElementById('gameOverContainer').style.display = 'block';
+        }
+
+        // Add play again button listener
+        document.getElementById('playAgainButton').addEventListener('click', restartGame);
+
+        // Add sound effect for flower hits
+        function createFlowerDeathAnimation(flower) {
+            // Play the hit sound
+            FLOWER_HIT_SOUND.currentTime = 0;  // Reset sound to start
+            FLOWER_HIT_SOUND.play();
+
+            const flowerRect = flower.getBoundingClientRect();
+            const flowerX = flowerRect.left + flowerRect.width/2;
+            const flowerY = flowerRect.top + flowerRect.height/2;
+            
+            // Create container for the petals
+            const petalContainer = document.createElement('div');
+            petalContainer.style.position = 'absolute';
+            petalContainer.style.left = flowerX + 'px';
+            petalContainer.style.top = flowerY + 'px';
+            petalContainer.style.zIndex = '1000';
+            
+            // Create multiple petals
+            const numPetals = 6;
+            const petalEmojis = ['🌸', '🌺', '🌹']; // Petal options
+            
+            for (let i = 0; i < numPetals; i++) {
+                const petal = document.createElement('div');
+                petal.className = 'petal';
+                petal.textContent = petalEmojis[Math.floor(Math.random() * petalEmojis.length)];
+                
+                // Calculate random direction and rotation for each petal
+                const angle = (i / numPetals) * 360 + Math.random() * 30;
+                const distance = 100 + Math.random() * 50;
+                const tx = Math.cos(angle * Math.PI / 180) * distance;
+                const ty = Math.sin(angle * Math.PI / 180) * distance + 100; // Add extra downward motion
+                const rotation = Math.random() * 360;
+                
+                petal.style.setProperty('--tx', `${tx}px`);
+                petal.style.setProperty('--ty', `${ty}px`);
+                petal.style.setProperty('--rotation', `${rotation}deg`);
+                
+                petalContainer.appendChild(petal);
+            }
+            
+            document.body.appendChild(petalContainer);
+            
+            // Remove container after animation
+            setTimeout(() => {
+                if (petalContainer.parentNode) {
+                    petalContainer.parentNode.removeChild(petalContainer);
+                }
+            }, 1000);
+        }
+       
+        function init() {
+            CANVAS.width = W;
+            CANVAS.height = H;
+            if (cPARTICLES) { 
+                createParticles();
+            }
+            loop();
+        }
+
+        // Only initialize canvas and background particles
+        init();
+
+        // Add function to create decorative flowers
+        function createDecorativeFlowers() {
+            const flowerRow = document.getElementById('decorativeFlowerRow');
+            const screenWidth = window.innerWidth;
+            const flowerWidth = 60;  // Approximate width of each flower emoji with spacing
+            const numFlowers = 9;
+            
+            for (let i = 0; i < numFlowers; i++) {
+                const flower = document.createElement('span');
+                if (i % 2 === 0) {
+                    flower.innerHTML = '&#x1F337;';  // Rose
+                } else {
+                    flower.innerHTML = '&#x1F33A;';  // Hibiscus
+                }
+                flowerRow.appendChild(flower);
+            }
+        }
+
+        // Call this when the page loads
+        createDecorativeFlowers();
+
+        function showLevelComplete() {
+            const container = document.getElementById('levelMessageContainer');
+            
+            // Create and show "Level Complete!" message
+            const completeMsg = document.createElement('div');
+            completeMsg.className = 'level-message';
+            completeMsg.textContent = 'Level Complete!';
+            completeMsg.style.animation = 'fadeInOut 2s forwards';
+            container.appendChild(completeMsg);
+
+            // After 2 seconds, show next level message
+            setTimeout(() => {
+                const nextLevelMsg = document.createElement('div');
+                nextLevelMsg.className = 'level-message';
+                nextLevelMsg.textContent = `Level ${gameLevel + 1}`;
+                nextLevelMsg.style.animation = 'fadeInOut 2s forwards';
+                container.appendChild(nextLevelMsg);
+
+                // Remove messages and start next level
+                setTimeout(() => {
+                    container.innerHTML = '';
+                    gameLevel++;
+                    restartGame(true);  // true indicates level up
+                }, 2000);
+            }, 2000);
+        }
+    </script>
+</body>
+
+
+</html>
