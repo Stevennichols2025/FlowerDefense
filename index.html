@@ -117,11 +117,20 @@
             
             // Start game intervals with fresh set
             gameIntervals = {
-                createBall: setInterval(createBall, 2000),
+                createBall: setInterval(() => {
+                    // As levels progress, increase chance of creating armored balls
+                    const armoredChance = Math.min(0.3, 0.05 + (gameLevel - 1) * 0.05); // Up to 30% max
+                    
+                    if (Math.random() < armoredChance && gameLevel > 1) {
+                        createBall("random", "armored");
+                    } else {
+                        createBall("random", "standard");
+                    }
+                }, 2000),
                 moveBalls: setInterval(moveBalls, 20),
                 moveAlien: setInterval(moveAlien, 20),
                 updatePlayer: setInterval(updatePlayer, 10),
-                moveLasers: setInterval(moveLasers, 20)
+                moveLasers: setInterval(moveLasers, 15)
             };
             console.log("gameIntervals ReCreated")
             console.log(balls.length)
@@ -206,6 +215,9 @@
         const SPACESHIP_HIT_SOUND = new Audio('sounds/spaceship_hit.mp3');
         const FLOWER_HIT_SOUND = new Audio('sounds/flower_hit.mp3');
         const BACKGROUND_MUSIC = new Audio('sounds/space-ranger-moire-main-version-03-04-10814.mp3');
+        const ARMORED_HIT_SOUND = new Audio('sounds/armored_hit.mp3');
+        const ARMORED_DEFEAT_SOUND =  new Audio('sounds/armored_defeat.mp3');
+
 
          // Set volume levels
         BACKGROUND_MUSIC.volume = 0.5;  // Background music at 30% volume
@@ -495,26 +507,74 @@
         }
 
         class Ball {
-            constructor(size, color, x, y, speed, angle) {
+            constructor(size, color, x, y, speed, angle, type = 'standard') {
                 this.size = BALL_SIZE;
                 this.color = color;
                 this.x = x;
                 this.y = y;
+                this.type = type; // 'standard' or 'armored'
+                // Health points based on type
+                this.hitPoints = this.type === 'standard' ? 1 : 4;
                 // Scale ball speed with level
-                const levelMultiplier = 1 + (gameLevel - 1) * 0.10; // 15% increase per level
+                const levelMultiplier = 1 + (gameLevel - 1) * 0.10; // 10% increase per level
                 this.speed = speed * (GAME_WIDTH / 1500) * levelMultiplier;
                 this.angle = angle;
             }
+            
             create() {
                 const ballElement = document.createElement('div');
                 ballElement.className = 'ball';
                 ballElement.style.width = this.size + 'px';
                 ballElement.style.height = this.size + 'px';
-                ballElement.innerHTML = '&#x1F47D;';
+                
+                // Choose emoji based on type
+                const emojiMap = {
+                    'standard': '&#x1F47D;', // Regular alien
+                    'armored': '&#x1F47E;'   // Alien monster/space invader
+                };
+                
+                ballElement.innerHTML = emojiMap[this.type] || emojiMap['standard'];
                 ballElement.style.fontSize = `${this.size}px`;
                 ballElement.style.color = this.color;
+                
+                // Add a subtle visual indicator of armored status
+                if (this.type === 'armored') {
+                    ballElement.style.textShadow = '0 0 10px #ff0, 0 0 15px #ff0'; // Yellow glow
+                }
+                
                 document.body.appendChild(ballElement);
                 this.element = ballElement;
+            }
+            
+            // New method to handle taking damage
+            takeDamage() {
+                this.hitPoints--;
+                // Visual feedback
+                this.flash();
+                return this.hitPoints <= 0; // Return true if destroyed
+            }
+            
+            // Flash effect when hit
+            flash() {
+                if (this.element) {
+                    // Store original color
+                    const originalColor = this.element.style.color;
+                    // Flash white
+                    this.element.style.color = '#fff';
+                   
+                    // Return to original color
+                    setTimeout(() => {
+                        if (this.element) {
+                            this.element.style.color = originalColor;
+                            
+                            // Update visual indicator based on remaining health (for armored balls)
+                            if (this.type === 'armored') {
+                                const opacity = this.hitPoints / 3; // Fade based on remaining health
+                                this.element.style.textShadow = `0 0 10px rgba(255,255,0,${opacity}), 0 0 15px rgba(255,255,0,${opacity})`;
+                            }
+                        }
+                    }, 100);
+                }
             }
 
             destroy() {
@@ -522,6 +582,7 @@
                     this.element.parentNode.removeChild(this.element);
                 }
             }
+
             move() {
                 const radianAngle = (this.angle * Math.PI) / 180;
                 const yVelocity = Math.sin(radianAngle) * this.speed;
@@ -735,7 +796,7 @@
             return angleToWall;
         }
 
-        function createBall(shotType = 'random') {
+        function createBall(shotType = 'random', ballType = 'standard') {
             // Level 1 - 10 ball max, Level 2 : 14 ball max, level 3 : 
             if (balls.length > cMAXBALLS + ((gameLevel - 1) * (2 * gameLevel))) {
                 console.log("Ball Count=" + balls.length)
@@ -770,9 +831,16 @@
                     angle = calculateBankShot(x, y, targetX, targetY);
                 }
                 
-                // Create ball with calculated angle
-                const ball = new Ball(BALL_SIZE, getRandomColor(), x, y, speed, angle);
-                ball.create();
+                // If ballType is 'random', decide which type to create
+                if (ballType === 'random') {
+                    // The higher the level, the more likely we are to get armored balls
+                    const armoredChance = 0.3 + (gameLevel - 1) * 0.05; // 10% at level 1, increases by 5% per level
+                    ballType = Math.random() < armoredChance ? 'armored' : 'standard';
+                }
+                
+                // Create ball with calculated angle and specified type
+                const ball = new Ball(BALL_SIZE, getRandomColor(), x, y, speed, angle, ballType);
+                ball.create("");
                 balls.push(ball);
             }
         }
@@ -913,8 +981,17 @@
                     lasers.splice(i, 1);
                     i--;
                     
-                    createBall("bank");
-                    createBall("bank");
+                    // Chance to create an armored ball increases with level
+                    const armoredChance = Math.min(0.3, 0.1 + (gameLevel - 1) * 0.05); // Up to 30% max
+                    
+                    // Create two balls in response to being hit
+                    if (Math.random() < armoredChance) {
+                        createBall("bank", "armored"); // Create an armored ball
+                        createBall("bank", "standard"); // Create a standard ball
+                    } else {
+                        createBall("bank", "standard"); // Create standard balls
+                        createBall("bank", "standard");
+                    }
 
                     aliens[0].takeDamage();  // Decrease alien health
                    
@@ -932,16 +1009,38 @@
                 for (let j = 0; j < balls.length; j++) {
                     const ball = balls[j];
                     if (ball.isColliding(laser.x, laser.y, LASER_HITBOX_WIDTH)) {
-                        ball.createExplosion(); // Add explosion effect before destroying the ball
+                        // Call takeDamage which returns true if the ball is destroyed
+                        const isDestroyed = ball.takeDamage();
                         
+                        // Always remove the laser
                         laser.destroy();
                         lasers.splice(i, 1);
                         i--;
                         
-                        ball.destroy();
-                        balls.splice(j, 1);
+                        // Only destroy the ball if all hitPoints are gone
+                        if (isDestroyed) {
+                            ball.createExplosion(); // Add explosion effect before destroying the ball
+                            ball.destroy();
+                            balls.splice(j, 1);
+                            
+                            if (ball.type === "armored") {
+                                ARMORED_DEFEAT_SOUND.currentTime = 0;  // Reset sound to start
+                                ARMORED_DEFEAT_SOUND.play();
+                            }
+                            // Award points based on ball type
+                            if (ball.type === 'armored') {
+                                score += 3; // 3 points for armored balls
+                            } else {
+                                score += 1; // 1 point for standard balls
+                            }
+                        }
+                        else {
+                            if (ball.type === "armored") {
+                                ARMORED_HIT_SOUND.currentTime = 0;  // Reset sound to start
+                                ARMORED_HIT_SOUND.play();
+                            }  
+                        }
                         
-                        score++;
                         document.getElementById('score').innerHTML = score.toString();
                         break;
                     }
@@ -1085,7 +1184,16 @@
             
             // Restart all game intervals with adjusted speeds
             gameIntervals = {
-                createBall: setInterval(createBall, 2000),
+                createBall: setInterval(() => {
+                    // As levels progress, increase chance of creating armored balls
+                    const armoredChance = Math.min(0.3, 0.05 + (gameLevel - 1) * 0.05); // Up to 30% max
+                    
+                    if (Math.random() < armoredChance && gameLevel > 1) {
+                        createBall("random", "armored");
+                    } else {
+                        createBall("random", "standard");
+                    }
+                }, 2000),
                 moveBalls: setInterval(moveBalls, 20),
                 moveAlien: setInterval(moveAlien, 20),
                 updatePlayer: setInterval(updatePlayer, 10),
