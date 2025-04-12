@@ -49,8 +49,8 @@ canvas {
 
 .explosion-particle {
     position: absolute;
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
     background-color: #ff6b6b;
     border-radius: 50%;
     pointer-events: none;
@@ -297,6 +297,16 @@ canvas {
     text-align: center;
     z-index: 2000;
     font-family: 'Press Start 2P', sans-serif;
+    width: 100%;
+    height: 60px;
+    overflow: hidden;
+}
+
+.message-container {
+    position: relative;
+    width: 100%;
+    height: 60px;
+    margin: 0;
 }
 
 .level-message {
@@ -320,13 +330,25 @@ canvas {
         opacity: 1;
         transform: translateX(-50%) scale(1.1);
     }
-    80% {
+    100% {
         opacity: 1;
         transform: translateX(-50%) scale(1);
     }
-    100% {
+}
+
+/* Create a new animation for level number messages that stays visible */
+@keyframes fadeInStay {
+    0% {
         opacity: 0;
-        transform: translateX(-50%) scale(0.9);
+        transform: translateX(-50%) scale(0.8);
+    }
+    20% {
+        opacity: 1;
+        transform: translateX(-50%) scale(1.1);
+    }
+    100% {
+        opacity: 1;
+        transform: translateX(-50%) scale(1);
     }
 }
 

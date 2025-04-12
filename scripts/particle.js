@@ -1,76 +1,75 @@
 class Particle {
-    constructor(x, y, z) {
-        this.pos = new Vector(
-            BORDER_MARGIN + Math.random() * GAME_WIDTH,
-            BORDER_MARGIN + Math.random() * GAME_HEIGHT,
-            z
-        );
-        const X_VEL = 0, Y_VEL = 0, Z_VEL = -Z_SPD;
-        this.vel = new Vector(X_VEL, Y_VEL, Z_VEL);
-        this.vel.scale(0.005);
-        this.fill = "rgba(255,255,255,0.3)";
-        this.stroke = this.fill;
+    constructor() {
+        this.reset(true);
+    }
+    
+    reset(isInitial = false) {
+        // For initial creation, distribute stars throughout the screen
+        // For ongoing resets, only create them at the top
+        if (isInitial) {
+            this.y = BORDER_MARGIN + Math.random() * GAME_HEIGHT;
+        } else {
+            this.y = BORDER_MARGIN;
+        }
+        
+        // Randomize x position
+        this.x = BORDER_MARGIN + Math.random() * GAME_WIDTH;
+        
+        // Depth gives illusion of 3D (0 = far, 1 = close)
+        this.depth = Math.random();
+        
+        // Speed based on depth - closer stars move faster
+        this.speed = 0.5 + this.depth * 2.5;
+        
+        // Brightness based on depth - closer stars are brighter
+        const brightness = 0.2 + this.depth * 0.8;
+        this.fill = `rgba(255,255,255,${brightness})`;
+        
+        // Size based on depth - closer stars are bigger
+        this.size = 0.3 + this.depth * 0.7;
     }
 
     update() {
-        this.pos.add(this.vel);
-        if (this.pos.x < BORDER_MARGIN || this.pos.x > GAME_WIDTH + BORDER_MARGIN ||
-            this.pos.y < BORDER_MARGIN || this.pos.y > GAME_HEIGHT + BORDER_MARGIN) {
-            this.pos.x = BORDER_MARGIN + Math.random() * GAME_WIDTH;
-            this.pos.y = BORDER_MARGIN + Math.random() * GAME_HEIGHT;
-            this.pos.z = MAX_Z;
+        // Move star down the screen
+        this.y += this.speed;
+        
+        // If star goes off screen, reset it at the top
+        if (this.y > GAME_HEIGHT + BORDER_MARGIN) {
+            this.reset();
         }
     }
 
     render() {
-        const PIXEL = to2d(this.pos),
-            X = PIXEL[0],
-            Y = PIXEL[1],
-            R = (MAX_Z - this.pos.z) / MAX_Z * MAX_R;
-
-        if (X < 0 || X > W || Y < 0 || Y > H) this.pos.z = MAX_Z;
+        // Skip if out of bounds
+        if (this.x < BORDER_MARGIN || 
+            this.x > GAME_WIDTH + BORDER_MARGIN ||
+            this.y < BORDER_MARGIN || 
+            this.y > GAME_HEIGHT + BORDER_MARGIN) {
+            return;
+        }
 
         this.update();
+        
+        // Draw the star as a simple circle
         CTX.beginPath();
         CTX.fillStyle = this.fill;
-        CTX.strokeStyle = this.stroke;
-        CTX.arc(X, PIXEL[1], R, 0, Math.PI * 2);
+        CTX.arc(this.x, this.y, this.size, 0, Math.PI * 2);
         CTX.fill();
-        CTX.stroke();
-        CTX.closePath();
     }
-}
-
-class Vector {
-    constructor(x, y, z) {
-        this.x = x;
-        this.y = y;
-        this.z = z;
-    }
-
-    add(v) {
-        this.x += v.x;
-        this.y += v.y;
-        this.z += v.z;
-    }
-
-    scale(n) {
-        this.x *= n;
-        this.y *= n;
-        this.z *= n;
-    }
-}
-
-function to2d(v) {
-    const X_COORD = v.x - XO,
-        Y_COORD = v.y - YO,
-        PX = X_COORD / v.z,
-        PY = Y_COORD / v.z;
-    return [PX + XO, PY + YO];
 }
 
 function render() {
     for (let i = 0; i < PARTICLES.length; i++) {
         PARTICLES[i].render();
+    }
+}
+
+// Create more particles for a denser star field
+function createParticles() {
+    PARTICLES.length = 0; // Clear any existing particles
+    // Create a lot more particles for a denser star field
+    const particleCount = Math.floor((WINDOW_WIDTH * WINDOW_HEIGHT) / 2000);
+    for (let i = 0; i < particleCount; i++) {
+        PARTICLES.push(new Particle());
     }
 }

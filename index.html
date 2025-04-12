@@ -40,6 +40,8 @@
         let WINDOW_WIDTH, WINDOW_HEIGHT, BORDER_MARGIN, GAME_WIDTH, GAME_HEIGHT;
         let PLAYER_SIZE, BALL_SIZE, ALIEN_SIZE;
 
+        cTEST_MODE = true 
+
         let gameLevel = 1; 
         let gameIntervals;
         
@@ -51,8 +53,8 @@
             GAME_WIDTH = WINDOW_WIDTH - (BORDER_MARGIN * 2);
             GAME_HEIGHT = WINDOW_HEIGHT - (BORDER_MARGIN * 2);
             PLAYER_SIZE = Math.min(WINDOW_WIDTH, WINDOW_HEIGHT) * .1;
-            BALL_SIZE = Math.min(WINDOW_WIDTH, WINDOW_HEIGHT) * .1;
-            ALIEN_SIZE = Math.min(WINDOW_WIDTH, WINDOW_HEIGHT) * 0.2;
+            BALL_SIZE = Math.min(WINDOW_WIDTH, WINDOW_HEIGHT) * .07;
+            ALIEN_SIZE = Math.min(WINDOW_WIDTH, WINDOW_HEIGHT) * 0.15;
         }
 
         // Call setCharacterSizes immediately to initialize values
@@ -75,9 +77,12 @@
                     clearInterval(gameIntervals[interval]);
                 }
             }
-            
+            console.log("intervals Cleared")
             // Responsive sizing constants
             setCharacterSizes(); 
+           
+            // Recreate particles for star field effect
+            createParticles();
            
             // Show game elements
             document.getElementById('score').style.display = 'block';
@@ -100,15 +105,16 @@
             player.style.bottom = `${BORDER_MARGIN + BOTTOM_BORDER_OFFSET -25}px`;
 
             // Create initial game elements
+            if (gameLevel === 1) {
+                addFlowers();
+            }
+            
+            // Draw the borders
             draw();
             createAlien();  
             document.getElementById('Alien').style.display = 'block';  
             createBall();
             
-            if (gameLevel === 1) {
-                addFlowers();
-            }
-
             // Start game intervals with fresh set
             gameIntervals = {
                 createBall: setInterval(createBall, 2000),
@@ -117,6 +123,8 @@
                 updatePlayer: setInterval(updatePlayer, 15),
                 moveLasers: setInterval(moveLasers, 20)
             };
+            console.log("gameIntervals ReCreated")
+            console.log(balls.length)
         }
 
         // Add start button listener
@@ -127,6 +135,8 @@
             // Hide game over screen if it's showing
             document.getElementById('gameOverContainer').style.display = 'none';
             
+            gameLevel = 1
+
             // Clear existing balls
             while(balls.length > 0) {
                 const ball = balls.pop();
@@ -159,6 +169,7 @@
             }
 
             // Initialize fresh game
+            console.log("Game Restarted")
             initializeGame();
         }
 
@@ -237,12 +248,13 @@
             const ctx = canvas.getContext('2d');
 
             // Clear with black background
-            ctx.fillStyle = 'black';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // ctx.fillStyle = 'black';
+            // ctx.fillRect(0, 0, canvas.width, canvas.height);
             
             ctx.strokeStyle = 'gold';
             
             // Draw top border
+           
             ctx.lineWidth = BORDER_WIDTH;
             ctx.beginPath();
             ctx.moveTo(BORDER_MARGIN, BORDER_MARGIN);
@@ -251,8 +263,8 @@
 
             // Draw right border
             ctx.beginPath();
-            ctx.moveTo(GAME_WIDTH + BORDER_MARGIN, BORDER_MARGIN);
-            ctx.lineTo(GAME_WIDTH + BORDER_MARGIN, GAME_HEIGHT + BORDER_MARGIN);
+            ctx.moveTo(GAME_WIDTH + BORDER_MARGIN - BORDER_OFFSET, BORDER_MARGIN + BORDER_OFFSET);
+            ctx.lineTo(GAME_WIDTH + BORDER_MARGIN - BORDER_OFFSET, GAME_HEIGHT + BORDER_MARGIN + BORDER_OFFSET);
             ctx.stroke();
 
             // Draw left border
@@ -317,7 +329,9 @@
                 this.y = y;
                 this.speed = speed;
                 this.isHit = false;
-                this.health = 100;  // Full health
+                this.isDefeated = false; // Flag to track if alien is already defeated
+                cTEST_MODE ? this.health = 20 : this.health = 100 
+                
             }
 
             create() {
@@ -340,7 +354,7 @@
             }
 
             takeDamage() {
-                this.health = Math.max(0, this.health - 5);  // Decrease by 5%, but not below 0
+                this.health = Math.max(0, this.health - 4);  // currently 25 hits to level up. 
                 document.getElementById('alienHealthBar').style.width = `${this.health}%`;
                 
                 if (this.health <= 0) {
@@ -349,6 +363,9 @@
             }
 
             defeat() {
+                // Set defeated flag
+                this.isDefeated = true;
+                
                 // Create big explosion effect
                 const explosion = document.createElement('div');
                 explosion.className = 'big-explosion';
@@ -366,14 +383,24 @@
                 // Show level complete message
                 showLevelComplete();
 
+                // Clear existing balls    
+                while(balls.length > 0) {
+                    const ball = balls.pop();
+                    ball.destroy();
+                }
+
+                // Clear existing lasers
+                while(lasers.length > 0) {
+                    const laser = lasers.pop();
+                    laser.destroy();
+                }
+               
                 // Pause game after animation
                 setTimeout(() => {
-                    isGamePaused = true;
-                    // Clear all intervals
-                    for (let interval in gameIntervals) {
-                        clearInterval(gameIntervals[interval]);
-                    }
-                    // Hide health bar
+                    // Use pauseGame function instead of directly setting variables
+                    pauseGame();
+                  
+                    // Hide health bar but don't remove the alien
                     document.getElementById('alienHealthContainer').style.display = 'none';
                     
                     // Remove explosion effect
@@ -466,7 +493,9 @@
                 this.color = color;
                 this.x = x;
                 this.y = y;
-                this.speed = speed * (GAME_WIDTH / 1500);
+                // Scale ball speed with level
+                const levelMultiplier = 1 + (gameLevel - 1) * 0.10; // 15% increase per level
+                this.speed = speed * (GAME_WIDTH / 1500) * levelMultiplier;
                 this.angle = angle;
             }
             create() {
@@ -482,46 +511,52 @@
             }
 
             destroy() {
-                this.element.parentNode.removeChild(this.element);
+                if (this.element && this.element.parentNode) {
+                    this.element.parentNode.removeChild(this.element);
+                }
             }
             move() {
                 const radianAngle = (this.angle * Math.PI) / 180;
+                const yVelocity = Math.sin(radianAngle) * this.speed;
+
                 const xSpeed = Math.cos(radianAngle) * this.speed;
                 const ySpeed = Math.sin(radianAngle) * this.speed;
 
                 this.x += xSpeed;
                 this.y += ySpeed;
-
+               
                 // Check side boundaries
-                if (this.x < BORDER_MARGIN + BORDER_OFFSET || 
-                    this.x > GAME_WIDTH + BORDER_MARGIN - BORDER_OFFSET - this.size) {
+                if (this.x < BORDER_MARGIN + BORDER_OFFSET + this.size / 2 || 
+                    this.x > GAME_WIDTH - BORDER_MARGIN - BORDER_OFFSET - (this.size / 2)) {
                     this.angle = 180 - this.angle;
+                    
+                    // Adjust position to avoid getting stuck in the wall
+                    if (this.x < BORDER_MARGIN + BORDER_OFFSET) {
+                        this.x = BORDER_MARGIN + BORDER_OFFSET + this.size / 2;
+                    } 
+                    else if (this.x > GAME_WIDTH + BORDER_MARGIN - BORDER_OFFSET - this.size) {
+                        this.x = GAME_WIDTH + BORDER_MARGIN - BORDER_OFFSET - this.size;
+                    }
                 }
 
                 // Check top boundary
-                if (this.y < BORDER_MARGIN + BORDER_OFFSET) {
+              
+               
+                if (this.y < ((BORDER_MARGIN + BORDER_OFFSET) + (this.size / 2)) && yVelocity < 0) {
                     this.angle = 360 - this.angle;
+                    // Adjust position to avoid getting stuck in the top wall
+                    this.y = BORDER_MARGIN + BORDER_OFFSET + this.size / 2;
                 }
 
                 // Check bottom boundary and flower collisions
-                if (this.y > GAME_HEIGHT + BORDER_MARGIN - BOTTOM_BORDER_OFFSET - this.size) {
+              
+                if (this.y > GAME_HEIGHT + BORDER_MARGIN - BOTTOM_BORDER_OFFSET) {
                     const ballCenterX = this.x + this.size/2;
                     const gapStart = (WINDOW_WIDTH/2) - 100;
                     const gapEnd = (WINDOW_WIDTH/2) + 100;
                     
-                    // Check for collision with gap edges
-                    if (ballCenterX < gapStart + this.size/2 && ballCenterX > gapStart - this.size/2) {
-                        // Hit left edge of gap - bounce like left wall
-                        this.angle = 180 - this.angle;
-                        // this.x = gapStart - this.size/2;  // Push ball away from edge
-                    } else if (ballCenterX > gapEnd - this.size/2 && ballCenterX < gapEnd + this.size/2) {
-                        // Hit right edge of gap - bounce like right wall
-                        this.angle = 180 - this.angle;
-                        // this.x = gapEnd + this.size/2;  // Push ball away from edge
-                    } else if (ballCenterX < gapStart || ballCenterX > gapEnd) {
-                        // Normal bottom border bounce
-                        this.angle = 360 - this.angle;
-                    } else {
+                    // First check for flower collisions if ball is in the gap area
+                    if (ballCenterX >= gapStart && ballCenterX <= gapEnd) {
                         // Ball is in the gap - check for flower collisions
                         const flowers = document.getElementsByClassName('static-flower');
                         let hitflower = false;
@@ -565,6 +600,25 @@
                             balls.splice(balls.indexOf(this), 1);
                             return;
                         }
+                    }
+                    // Then check for collisions with bottom boundary or gap edges
+                    else if (ballCenterX < gapStart + this.size/2 && ballCenterX > gapStart - this.size/2) {
+                        // Hit left edge of gap - bounce like left wall
+                        this.angle = 180 - this.angle;
+                        // Move the ball away from the edge
+                        this.x = gapStart - this.size;
+                    } 
+                    else if (ballCenterX > gapEnd - this.size/2 && ballCenterX < gapEnd + this.size/2) {
+                        // Hit right edge of gap - bounce like right wall
+                        this.angle = 180 - this.angle;
+                        // Move the ball away from the edge
+                        this.x = gapEnd;
+                    } 
+                    else if (ballCenterX < gapStart || ballCenterX > gapEnd) {
+                        // Normal bottom border bounce
+                        this.angle = 360 - this.angle;
+                        // Adjust position to avoid getting stuck in the bottom wall
+                        this.y = GAME_HEIGHT + BORDER_MARGIN - BOTTOM_BORDER_OFFSET - this.size;
                     }
                 }
 
@@ -632,7 +686,9 @@
         function createAlien() {
             const x = GAME_WIDTH / 3 + BORDER_MARGIN + BORDER_OFFSET;
             const y = BORDER_MARGIN + BORDER_OFFSET - 50;
-            const speed = 5 * (GAME_WIDTH / 1500);
+            const baseSpeed = 5 * (GAME_WIDTH / 1500);
+            // Scale alien speed with level
+            const speed = baseSpeed * (1 + (gameLevel - 1) * 0.12); // 12% increase per level
             const alien = new Alien(ALIEN_SIZE, getRandomColor(), x, y, speed);
             alien.create();
             aliens.push(alien);
@@ -675,11 +731,12 @@
         function createBall(shotType = 'random') {
             // Level 1 - 10 ball max, Level 2 : 14 ball max, level 3 : 
             if (balls.length > cMAXBALLS + ((gameLevel - 1) * (2 * gameLevel))) {
+                console.log("Ball Count=" + balls.length)
                 return;
             }
 
-            const x = aliens[0].x;
-            const y = BORDER_MARGIN + BORDER_OFFSET;
+            const x = aliens[0].x + (ALIEN_SIZE / 2);
+            const y = BORDER_MARGIN + BORDER_OFFSET + (ALIEN_SIZE / 2);
             const speed = 5 * (GAME_WIDTH / 1500);
 
             // Get flower positions
@@ -801,7 +858,7 @@
             if (event.key === ' ' && !isGamePaused) {
                 // Create a new laser and add to lasers collection unless max number of lasers are already on screen 
                 if (lasers.length < cMAX_LASERS_AT_ONCE) {
-                    const laser = new Laser(playerX, GAME_HEIGHT + BORDER_MARGIN - (BOTTOM_BORDER_WIDTH * .5));
+                    const laser = new Laser(playerX, GAME_HEIGHT + BORDER_MARGIN - BOTTOM_BORDER_OFFSET - (PLAYER_SIZE / 2));
                     laser.create();
                     lasers.push(laser);
                     LASER_SOUND.currentTime = 0; 
@@ -820,18 +877,17 @@
                 const laser = lasers[i];
                 laser.move();
                 
-                // Check for alien collision first
-                if (aliens[0].isColliding(laser.x, laser.y, 20)) {
+                // Check for alien collision first - only process if the alien is not already defeated
+                if (aliens.length > 0 && !aliens[0].isDefeated && aliens[0].isColliding(laser.x, laser.y, 20)) {
                     laser.destroy();
                     lasers.splice(i, 1);
                     i--;
                     
+                    createBall("bank");
+                    createBall("bank");
                     aliens[0].takeDamage();  // Decrease alien health
-                    createBall("bank");
-                    createBall("bank");
-                    createBall("bank");
-                    createBall("bank");
-
+                   
+                   
                     score += 5; // Award 5 points for hitting the alien
                     SPACESHIP_HIT_SOUND.currentTime = 0; 
                     SPACESHIP_HIT_SOUND.play(); 
@@ -876,13 +932,22 @@
             H = GAME_HEIGHT,
             XO = W / 2 + BORDER_MARGIN,
             YO = H / 2 + BORDER_MARGIN,
-            NUM_PARTICLES = Math.floor((WINDOW_WIDTH * WINDOW_HEIGHT) / 8000),
-            MAX_Z = 2,
-            MAX_R = Math.min(WINDOW_WIDTH, WINDOW_HEIGHT) * 0.001,
-            Z_SPD = 1,
             PARTICLES = [];
-
+            
+        // Call once on page load to start the animation
+        init();
         
+        function init() {
+            CANVAS.width = WINDOW_WIDTH;
+            CANVAS.height = WINDOW_HEIGHT;
+            
+            // Create and start particles
+            createParticles();
+            loop();
+            
+            // Draw initial borders
+            draw();
+        }
 
         function loop() {
             requestAnimationFrame(loop);
@@ -897,25 +962,31 @@
                     GAME_HEIGHT - BORDER_WIDTH - (BOTTOM_BORDER_WIDTH - BORDER_WIDTH));
             CTX.clip();
             
-            CTX.fillStyle = "rgba(0,0,0,0.15)";
+            // Clear previous frame completely
+            CTX.clearRect(BORDER_MARGIN + BORDER_OFFSET, 
+                        BORDER_MARGIN + BORDER_OFFSET, 
+                        GAME_WIDTH - BORDER_WIDTH, 
+                        GAME_HEIGHT - BORDER_WIDTH - (BOTTOM_BORDER_WIDTH - BORDER_WIDTH));
+            
+            // Background for depth (completely black)
+            CTX.fillStyle = "rgba(0,0,0,1)";
             CTX.fillRect(BORDER_MARGIN + BORDER_OFFSET, 
                         BORDER_MARGIN + BORDER_OFFSET, 
                         GAME_WIDTH - BORDER_WIDTH, 
                         GAME_HEIGHT - BORDER_WIDTH - (BOTTOM_BORDER_WIDTH - BORDER_WIDTH));
             
-            if (cPARTICLES) {
-                render();
-            }
+            // Always render particles
+            render();
             
             CTX.restore();
-            
-            draw();
         }
 
         function createParticles() {
-            for (let i = 0; i < NUM_PARTICLES; i++) {
-                const X = Math.random() * W, Y = Math.random() * H, Z = Math.random() * MAX_Z;
-                PARTICLES.push(new Particle(X, Y, Z));
+            PARTICLES.length = 0; // Clear any existing particles
+            // Create a lot more particles for a denser star field
+            const particleCount = Math.floor((WINDOW_WIDTH * WINDOW_HEIGHT) / 2000);
+            for (let i = 0; i < particleCount; i++) {
+                PARTICLES.push(new Particle());
             }
         }
 
@@ -924,26 +995,80 @@
         const pauseButton = document.getElementById('pauseButton');
         pauseButton.style.bottom = `${BORDER_MARGIN + BORDER_OFFSET - 50}px`;
         
-        pauseButton.addEventListener('click', function() {
-            isGamePaused = !isGamePaused;
-            if (isGamePaused) {
-                pauseButton.textContent = '▶️'; // Play symbol
-                // Clear all intervals
+        // Add unified pause/unpause functions
+        function pauseGame(playerPaused = false) {
+            isGamePaused = true;
+            pauseButton.textContent = '▶️'; // Play symbol
+            
+            // Clear all intervals
+            if (gameIntervals) {
                 for (let interval in gameIntervals) {
                     clearInterval(gameIntervals[interval]);
+                    gameIntervals[interval] = null; // Set to null to ensure GC
                 }
+            }
+            
+            if (playerPaused) {
                 BACKGROUND_MUSIC.pause();  // Pause the music
+            }
+           
+        }
+
+        function unpauseGame() {
+            // Always make sure to clear any existing intervals first
+            if (gameIntervals) {
+                for (let interval in gameIntervals) {
+                    clearInterval(gameIntervals[interval]);
+                    gameIntervals[interval] = null;
+                }
+            }
+            
+            isGamePaused = false;
+            pauseButton.textContent = '⏸️'; // Pause symbol
+            
+            // Get updated speed values based on current level
+            const baseSpeed = 5 * (GAME_WIDTH / 1500);
+            const alienSpeed = baseSpeed * (1 + (gameLevel - 1) * 0.2); // Increase alien speed by 20% per level
+            const ballSpeed = baseSpeed * (1 + (gameLevel - 1) * 0.15); // Increase ball speed by 15% per level
+            
+            // Create the alien for the current level if it doesn't exist
+            if (aliens.length === 0) {
+                // Create a new alien with updated speed
+                createAlien();
+                document.getElementById('alienHealthContainer').style.display = 'block';
             } else {
-                pauseButton.textContent = '⏸️'; // Pause symbol
-                // Restart all game intervals
-                gameIntervals = {
-                    createBall: setInterval(createBall, 2000),
-                    moveBalls: setInterval(moveBalls, 20),
-                    moveAlien: setInterval(moveAlien, 20),
-                    updatePlayer: setInterval(updatePlayer, 15),
-                    moveLasers: setInterval(moveLasers, 20)
-                };
-                BACKGROUND_MUSIC.play();  // Resume the music
+                // Reposition existing alien to center of screen
+                const centerX = (GAME_WIDTH / 2) - (aliens[0].size / 2) + BORDER_MARGIN;
+                aliens[0].x = centerX;
+                aliens[0].element.style.left = centerX + 'px';
+                aliens[0].element.style.top = (BORDER_MARGIN + BORDER_OFFSET) + 'px';
+                
+                // Reset alien classes to remove defeat animation if present
+                aliens[0].element.className = 'alien';
+                
+                // Reset health
+                aliens[0].health = cTEST_MODE ? 20 : 100 
+                document.getElementById('alienHealthBar').style.width = '100%';
+                document.getElementById('alienHealthContainer').style.display = 'block';
+            }
+            
+            // Restart all game intervals with adjusted speeds
+            gameIntervals = {
+                createBall: setInterval(createBall, 2000),
+                moveBalls: setInterval(moveBalls, 20),
+                moveAlien: setInterval(moveAlien, 20),
+                updatePlayer: setInterval(updatePlayer, 15),
+                moveLasers: setInterval(moveLasers, 20)
+            };
+            
+            BACKGROUND_MUSIC.play();  // Resume the music
+        }
+
+        pauseButton.addEventListener('click', function() {
+            if (isGamePaused) {
+                unpauseGame();
+            } else {
+                pauseGame(true);
             }
         });
 
@@ -981,8 +1106,29 @@
             
             // Clear all intervals
             for (let interval in gameIntervals) {
-                    clearInterval(gameIntervals[interval]);
-                }
+                clearInterval(gameIntervals[interval]);
+            }
+
+            // Hide player and alien
+            document.getElementById('player').style.display = 'none';
+            if (aliens.length > 0 && aliens[0].element) {
+                aliens[0].element.style.display = 'none';
+            }
+            
+            // Hide health bar
+            document.getElementById('alienHealthContainer').style.display = 'none';
+
+            // Clear any existing lasers
+            while(lasers.length > 0) {
+                const laser = lasers.pop();
+                laser.destroy();
+            }
+            
+            // Clear any existing balls
+            while(balls.length > 0) {
+                const ball = balls.pop();
+                ball.destroy();
+            }
 
             BACKGROUND_MUSIC.pause();  // Stop the music
 
@@ -1007,11 +1153,11 @@
             const petalContainer = document.createElement('div');
             petalContainer.style.position = 'absolute';
             petalContainer.style.left = flowerX + 'px';
-            petalContainer.style.top = flowerY + 'px';
+            petalContainer.style.top = flowerY - 5 + 'px';
             petalContainer.style.zIndex = '1000';
             
             // Create multiple petals
-            const numPetals = 6;
+            const numPetals = 8;
             const petalEmojis = ['🌸', '🌺', '🌹']; // Petal options
             
             for (let i = 0; i < numPetals; i++) {
@@ -1040,7 +1186,7 @@
                 if (petalContainer.parentNode) {
                     petalContainer.parentNode.removeChild(petalContainer);
                 }
-            }, 1000);
+            }, 1500);
         }
        
         function init() {
@@ -1078,29 +1224,47 @@
 
         function showLevelComplete() {
             const container = document.getElementById('levelMessageContainer');
+            // Clear any existing messages
+            container.innerHTML = '';
+            
+            // Create a container for the "Level Complete!" message
+            const completeMsgContainer = document.createElement('div');
+            completeMsgContainer.className = 'message-container';
+            container.appendChild(completeMsgContainer);
             
             // Create and show "Level Complete!" message
             const completeMsg = document.createElement('div');
             completeMsg.className = 'level-message';
             completeMsg.textContent = 'Level Complete!';
             completeMsg.style.animation = 'fadeInOut 2s forwards';
-            container.appendChild(completeMsg);
+            completeMsgContainer.appendChild(completeMsg);
 
-            // After 2 seconds, show next level message
+            // After 2 seconds, show next level message in its own container
             setTimeout(() => {
+                // Clear previous messages
+                container.innerHTML = '';
+                
+                // Create a new container for the next level message
+                const nextLevelContainer = document.createElement('div');
+                nextLevelContainer.className = 'message-container';
+                container.appendChild(nextLevelContainer);
+                
                 const nextLevelMsg = document.createElement('div');
                 nextLevelMsg.className = 'level-message';
                 nextLevelMsg.textContent = `Level ${gameLevel + 1}`;
-                nextLevelMsg.style.animation = 'fadeInOut 2s forwards';
-                container.appendChild(nextLevelMsg);
+                // Use the fadeInStay animation that remains visible
+                nextLevelMsg.style.animation = 'fadeInStay 0.5s forwards';
+                nextLevelContainer.appendChild(nextLevelMsg);
 
-                // Remove messages and start next level
+                // Remove messages and unpause game
                 setTimeout(() => {
                     container.innerHTML = '';
                     gameLevel++;
-                    restartGame(true);  // true indicates level up
+                    unpauseGame();  // Use the unified unpause function
+                    console.log("Level Up Complete")
                 }, 2000);
             }, 2000);
+            aliens[0].isDefeated = false; 
         }
     </script>
 </body>
