@@ -40,7 +40,7 @@
         let WINDOW_WIDTH, WINDOW_HEIGHT, BORDER_MARGIN, GAME_WIDTH, GAME_HEIGHT;
         let PLAYER_SIZE, BALL_SIZE, ALIEN_SIZE;
 
-        cTEST_MODE = true 
+        cTEST_MODE = false 
 
         let gameLevel = 1; 
         let gameIntervals;
@@ -885,6 +885,7 @@
                     
                     createBall("bank");
                     createBall("bank");
+
                     aliens[0].takeDamage();  // Decrease alien health
                    
                    
