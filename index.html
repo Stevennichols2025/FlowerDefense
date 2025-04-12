@@ -135,7 +135,13 @@
             // Hide game over screen if it's showing
             document.getElementById('gameOverContainer').style.display = 'none';
             
-            gameLevel = 1
+            // Always reset gameLevel to 1 when restarting
+            gameLevel = 1;
+            
+            // Always reset score when restarting (regardless of levelUp)
+            score = 0;
+            document.getElementById('score').innerHTML = '0';
+            document.getElementById('score').style.display = 'block';
 
             // Clear existing balls
             while(balls.length > 0) {
@@ -156,10 +162,6 @@
             }
             
             if (!levelUp) {
-                // Only reset score and flowers if not leveling up
-                score = 0;
-                document.getElementById('score').innerHTML = '0';
-                
                 // Clear existing flowers
                 const flowers = document.getElementsByClassName('static-flower');
                 while(flowers.length > 0) {
@@ -169,7 +171,7 @@
             }
 
             // Initialize fresh game
-            console.log("Game Restarted")
+            console.log("Game Restarted with score reset to: " + score);
             initializeGame();
         }
 
@@ -194,10 +196,10 @@
         // Add game state variable
         let isGamePaused = false;
 
-
-        var score = 0;
-        cMAXBALLS = 10;
-        cPARTICLES = true;
+        // Game configuration constants
+        const cMAXBALLS = 10;
+        const cPARTICLES = true;
+        let score = 0; // Game score - global variable
 
         const LASER_SOUND = new Audio('sounds/laser_fire.mp3');
         const SPACESHIP_HIT_SOUND = new Audio('sounds/spaceship_hit.mp3');
