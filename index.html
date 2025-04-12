@@ -120,7 +120,7 @@
                 createBall: setInterval(createBall, 2000),
                 moveBalls: setInterval(moveBalls, 20),
                 moveAlien: setInterval(moveAlien, 20),
-                updatePlayer: setInterval(updatePlayer, 15),
+                updatePlayer: setInterval(updatePlayer, 10),
                 moveLasers: setInterval(moveLasers, 20)
             };
             console.log("gameIntervals ReCreated")
@@ -199,6 +199,7 @@
         // Game configuration constants
         const cMAXBALLS = 10;
         const cPARTICLES = true;
+        const LASER_HITBOX_WIDTH = 25; // Width of laser collision detection in pixels
         let score = 0; // Game score - global variable
 
         const LASER_SOUND = new Audio('sounds/laser_fire.mp3');
@@ -297,6 +298,7 @@
                 this.x = x;
                 this.y = y;
                 this.speed = 25;  // Define a consistent speed
+                this.width = 5;   // Visual width of the laser beam
             }
 
             move() {
@@ -308,8 +310,11 @@
             create() {
                 const laserElement = document.createElement('div');
                 laserElement.className = 'laser';
-                laserElement.textContent = '|';
-                laserElement.style.left = `${this.x}px`;
+                laserElement.style.width = `${this.width}px`;
+                laserElement.style.height = '25px';
+                laserElement.style.backgroundColor = '#0ff'; // Cyan color
+                laserElement.style.boxShadow = '0 0 5px #0ff, 0 0 10px #0ff'; // Glow effect
+                laserElement.style.left = `${this.x - (this.width/2)}px`; // Center the laser on x
                 laserElement.style.top = `${this.y}px`;
                 document.body.appendChild(laserElement);
                 this.element = laserElement;
@@ -783,6 +788,7 @@
         }
 
         function moveAlien() {
+            if (isGamePaused) return;
             aliens[0].move();
         }
 
@@ -800,6 +806,11 @@
         player.style.left = `${playerX}px`;
         let isMovingLeft = false;
         let isMovingRight = false;
+        // New variables for smoother movement
+        let playerSpeed = 0;
+        const MAX_PLAYER_SPEED = 8;
+        const ACCELERATION = 0.5;
+        const DECELERATION = 0.8;
 
         document.addEventListener('keydown', function (event) {
             if (event.key === 'ArrowLeft') {
@@ -819,11 +830,25 @@
 
         function updatePlayer() {
             if (isGamePaused) return;
-            if (isMovingLeft) {
-                playerX -= GAME_WIDTH / 150;
-            } else if (isMovingRight) {
-                playerX += GAME_WIDTH / 150;
+            
+            // Apply acceleration/deceleration for smoother movement
+            if (isMovingLeft && !isMovingRight) {
+                playerSpeed = Math.max(-MAX_PLAYER_SPEED, playerSpeed - ACCELERATION);
+            } else if (isMovingRight && !isMovingLeft) {
+                playerSpeed = Math.min(MAX_PLAYER_SPEED, playerSpeed + ACCELERATION);
+            } else {
+                // Apply deceleration when no keys are pressed or both keys are pressed
+                if (playerSpeed > 0) {
+                    playerSpeed *= DECELERATION;
+                    if (playerSpeed < 0.1) playerSpeed = 0;
+                } else if (playerSpeed < 0) {
+                    playerSpeed *= DECELERATION;
+                    if (playerSpeed > -0.1) playerSpeed = 0;
+                }
             }
+            
+            // Apply player speed
+            playerX += playerSpeed;
 
             // Account for border width in boundaries and keep player above bottom border
             playerX = Math.max(BORDER_MARGIN + BORDER_OFFSET, 
@@ -853,21 +878,24 @@
 
         
         // Laser firing
-        cMAX_LASERS_AT_ONCE = 4
+        cMAX_LASERS_AT_ONCE = 5
        
         document.addEventListener('keydown', function (event) {
           
             if (event.key === ' ' && !isGamePaused) {
                 // Create a new laser and add to lasers collection unless max number of lasers are already on screen 
                 if (lasers.length < cMAX_LASERS_AT_ONCE) {
-                    const laser = new Laser(playerX, GAME_HEIGHT + BORDER_MARGIN - BOTTOM_BORDER_OFFSET - (PLAYER_SIZE / 2));
+                    // Use player position for x coordinate, centered properly
+                    const laser = new Laser(
+                        playerX, // X position centered on player
+                        GAME_HEIGHT + BORDER_MARGIN - BOTTOM_BORDER_OFFSET - (PLAYER_SIZE / 2) // Y position
+                    );
                     laser.create();
                     lasers.push(laser);
                     LASER_SOUND.currentTime = 0; 
                     LASER_SOUND.play();
-                   
                 }
-                }
+            }
         });
 
         // Separate laser movement and collision detection into its own function
@@ -880,7 +908,7 @@
                 laser.move();
                 
                 // Check for alien collision first - only process if the alien is not already defeated
-                if (aliens.length > 0 && !aliens[0].isDefeated && aliens[0].isColliding(laser.x, laser.y, 20)) {
+                if (aliens.length > 0 && !aliens[0].isDefeated && aliens[0].isColliding(laser.x, laser.y, LASER_HITBOX_WIDTH)) {
                     laser.destroy();
                     lasers.splice(i, 1);
                     i--;
@@ -903,7 +931,7 @@
                 // Check for laser / ball collisions
                 for (let j = 0; j < balls.length; j++) {
                     const ball = balls[j];
-                    if (ball.isColliding(laser.x, laser.y, 10)) {
+                    if (ball.isColliding(laser.x, laser.y, LASER_HITBOX_WIDTH)) {
                         ball.createExplosion(); // Add explosion effect before destroying the ball
                         
                         laser.destroy();
@@ -1060,8 +1088,8 @@
                 createBall: setInterval(createBall, 2000),
                 moveBalls: setInterval(moveBalls, 20),
                 moveAlien: setInterval(moveAlien, 20),
-                updatePlayer: setInterval(updatePlayer, 15),
-                moveLasers: setInterval(moveLasers, 20)
+                updatePlayer: setInterval(updatePlayer, 10),
+                moveLasers: setInterval(moveLasers, 15)
             };
             
             BACKGROUND_MUSIC.play();  // Resume the music
@@ -1090,11 +1118,25 @@
 
         function updatePlayer() {
             if (isGamePaused) return;
-            if (isMovingLeft) {
-                playerX -= GAME_WIDTH / 150;
-            } else if (isMovingRight) {
-                playerX += GAME_WIDTH / 150;
+            
+            // Apply acceleration/deceleration for smoother movement
+            if (isMovingLeft && !isMovingRight) {
+                playerSpeed = Math.max(-MAX_PLAYER_SPEED, playerSpeed - ACCELERATION);
+            } else if (isMovingRight && !isMovingLeft) {
+                playerSpeed = Math.min(MAX_PLAYER_SPEED, playerSpeed + ACCELERATION);
+            } else {
+                // Apply deceleration when no keys are pressed or both keys are pressed
+                if (playerSpeed > 0) {
+                    playerSpeed *= DECELERATION;
+                    if (playerSpeed < 0.1) playerSpeed = 0;
+                } else if (playerSpeed < 0) {
+                    playerSpeed *= DECELERATION;
+                    if (playerSpeed > -0.1) playerSpeed = 0;
+                }
             }
+            
+            // Apply player speed
+            playerX += playerSpeed;
 
             // Account for border width in boundaries and keep player above bottom border
             playerX = Math.max(BORDER_MARGIN + BORDER_OFFSET, 

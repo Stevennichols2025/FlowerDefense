@@ -67,11 +67,9 @@ canvas {
     font-size: 120px;
 }
 
-
 .laser {
     position: absolute;
-    font-size: 40px;
-    color: rgb(199, 219, 20);
+    /* Let the inline styles handle appearance */
 }
 
 .score {
@@ -145,8 +143,6 @@ canvas {
 #playAgainButton:hover {
     transform: scale(1.1);
 }
-
-
 
 @keyframes petal-fall {
     0% {
