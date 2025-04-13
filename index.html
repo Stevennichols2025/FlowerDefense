@@ -10,7 +10,18 @@
 
 <body>
 
-    <canvas id="canvas"></canvas>
+    <canvas id="canvas" style="z-index: -2; position: absolute;"></canvas>
+
+    <!-- DIV Borders -->
+    <div id="border-top" class="game-border"></div>
+    <div id="border-left" class="game-border"></div>
+    <div id="border-right" class="game-border"></div>
+    <div id="border-bottom-left" class="game-border"></div>
+    <div id="border-bottom-right" class="game-border">
+        <!-- Changed div to button -->
+        <button id="beehiveDefenseIcon" type="button"></button> 
+    </div>
+    <!-- End DIV Borders -->
 
     <div id="startGameContainer">
         <div id="startGameText">FLOWER DEFENSE</div>
@@ -39,22 +50,114 @@
         // Global variables for responsive sizing
         let WINDOW_WIDTH, WINDOW_HEIGHT, BORDER_MARGIN, GAME_WIDTH, GAME_HEIGHT;
         let PLAYER_SIZE, BALL_SIZE, ALIEN_SIZE;
+        
+        // Define Border Width Constants Globally and Early
+        const BORDER_WIDTH = 60; // Reduced thickness
+        const BOTTOM_BORDER_WIDTH = 120; // Reduced thickness
+        const BORDER_OFFSET = BORDER_WIDTH / 2; 
+        const BOTTOM_BORDER_OFFSET = BOTTOM_BORDER_WIDTH / 2;
+
+        // Global variables for Game Area Boundaries (derived from DIVs)
+        let gameAreaTop, gameAreaLeft, gameAreaRight, gameAreaBottom;
+        let gapStartX, gapEndX; // Coordinates for the gap edges
 
         cTEST_MODE = false 
+        BALL_SPEED_DIVISOR = 1500
 
         let gameLevel = 1; 
         let gameIntervals;
-        
+        // Bee-related variables and constants
+       
+        let beehiveReady = true; // Is the defense ready to use?
+        let lastBeehiveTime = 0; // Timestamp of last use
+        const BEEHIVE_COOLDOWN = 15000; // 15 seconds cooldown
+        let beehiveIconElement = null; // Reference to the icon DOM element
+
         // This function will be called again if the window is resized 
         function setCharacterSizes() {
+            // Calculate core dimensions
             WINDOW_WIDTH = window.innerWidth;
             WINDOW_HEIGHT = window.innerHeight;
             BORDER_MARGIN = Math.min(WINDOW_WIDTH, WINDOW_HEIGHT) * 0.02;
             GAME_WIDTH = WINDOW_WIDTH - (BORDER_MARGIN * 2);
             GAME_HEIGHT = WINDOW_HEIGHT - (BORDER_MARGIN * 2);
+            // Keep player/ball/alien sizes
             PLAYER_SIZE = Math.min(WINDOW_WIDTH, WINDOW_HEIGHT) * .1;
             BALL_SIZE = Math.min(WINDOW_WIDTH, WINDOW_HEIGHT) * .07;
             ALIEN_SIZE = Math.min(WINDOW_WIDTH, WINDOW_HEIGHT) * 0.15;
+
+            // --- Style the Border DIVs --- 
+            const topBorder = document.getElementById('border-top');
+            const leftBorder = document.getElementById('border-left');
+            const rightBorder = document.getElementById('border-right');
+            const bottomLeftBorder = document.getElementById('border-bottom-left');
+            const bottomRightBorder = document.getElementById('border-bottom-right');
+
+            const centerGapWidth = 280; // Increased gap width for another flower
+            const gapStartCalc = (WINDOW_WIDTH / 2) - (centerGapWidth / 2);
+            const gapEndCalc = (WINDOW_WIDTH / 2) + (centerGapWidth / 2);
+
+            if (topBorder) {
+                topBorder.style.top = `${BORDER_MARGIN}px`; 
+                topBorder.style.left = `${BORDER_MARGIN}px`; 
+                topBorder.style.width = `${GAME_WIDTH}px`;
+                topBorder.style.height = `${BORDER_WIDTH}px`; 
+            }
+            if (leftBorder) {
+                leftBorder.style.top = `${BORDER_MARGIN}px`; 
+                leftBorder.style.left = `${BORDER_MARGIN}px`; 
+                leftBorder.style.width = `${BORDER_WIDTH}px`; 
+                leftBorder.style.height = `${GAME_HEIGHT}px`; // Correct height based on game area
+            }
+            if (rightBorder) {
+                rightBorder.style.top = `${BORDER_MARGIN}px`; 
+                rightBorder.style.right = `${BORDER_MARGIN}px`; 
+                rightBorder.style.width = `${BORDER_WIDTH}px`; 
+                rightBorder.style.height = `${GAME_HEIGHT}px`; 
+            }
+            if (bottomLeftBorder) {
+                bottomLeftBorder.style.bottom = `${BORDER_MARGIN}px`; 
+                bottomLeftBorder.style.left = `${BORDER_MARGIN}px`; 
+                bottomLeftBorder.style.width = `${gapStartCalc - BORDER_MARGIN}px`; // Updated width to wider gap
+                bottomLeftBorder.style.height = `${BOTTOM_BORDER_WIDTH}px`; // Use new 160px
+            }
+            if (bottomRightBorder) {
+                bottomRightBorder.style.bottom = `${BORDER_MARGIN}px`; 
+                bottomRightBorder.style.right = `${BORDER_MARGIN}px`; 
+                bottomRightBorder.style.width = `${WINDOW_WIDTH - gapEndCalc - BORDER_MARGIN}px`; // Updated width from wider gap
+                bottomRightBorder.style.height = `${BOTTOM_BORDER_WIDTH}px`; // Use new 160px
+            }
+            // -----------------------------
+            
+            // --- Read DIV Boundaries into Global Variables ---
+            if (topBorder && leftBorder && rightBorder && bottomLeftBorder && bottomRightBorder) {
+                // Use getBoundingClientRect for viewport-relative coordinates
+                const topRect = topBorder.getBoundingClientRect();
+                const leftRect = leftBorder.getBoundingClientRect();
+                const rightRect = rightBorder.getBoundingClientRect();
+                const blRect = bottomLeftBorder.getBoundingClientRect();
+                const brRect = bottomRightBorder.getBoundingClientRect();
+
+                // Calculate inner game area boundaries
+                gameAreaTop = topRect.bottom; 
+                gameAreaLeft = leftRect.right;
+                gameAreaRight = rightRect.left;
+                gameAreaBottom = blRect.top; // Use top edge of bottom border
+                gapStartX = blRect.right; // Right edge of bottom-left defines gap start
+                gapEndX = brRect.left;   // Left edge of bottom-right defines gap end
+                
+                console.log("Game Area Boundaries Updated:", { 
+                    top: gameAreaTop, 
+                    left: gameAreaLeft, 
+                    right: gameAreaRight, 
+                    bottom: gameAreaBottom, 
+                    gapStart: gapStartX, 
+                    gapEnd: gapEndX 
+                });
+            } else {
+                console.error("Could not find all border DIV elements to calculate boundaries.");
+            }
+            // --------------------------------------------------------
         }
 
         // Call setCharacterSizes immediately to initialize values
@@ -69,8 +172,8 @@
 
        
 
-        // Initialize game function
-        function initializeGame() {
+        // Initialize game function - Make it async to use await
+        async function initializeGame() { 
             // Clear any existing intervals first
             if (gameIntervals) {
                 for (let interval in gameIntervals) {
@@ -78,19 +181,17 @@
                 }
             }
             console.log("intervals Cleared")
-            // Responsive sizing constants
-            setCharacterSizes(); 
            
-            // Recreate particles for star field effect
-            createParticles();
+            // Responsive sizing constants (initial call)
+            // setCharacterSizes(); 
            
-            // Show game elements
+            // Show game elements early 
             document.getElementById('score').style.display = 'block';
             document.getElementById('player').style.display = 'block';
             document.getElementById('pauseButton').style.display = 'block';
             document.getElementById('alienHealthContainer').style.display = 'block';
             
-            // Hide start screen (which includes the decorative flowers)
+            // Hide start screen
             document.getElementById('startGameContainer').style.display = 'none';
 
             // Start background music
@@ -99,18 +200,40 @@
             // Initialize game state
             isGamePaused = false;
 
-            // Reset player position
-            playerX = WINDOW_WIDTH / 2;
+            // Reset player position (using potentially inaccurate initial sizes - negligible effect)
+            playerX = window.innerWidth / 2; 
+            // Initial bottom guess (will be corrected after fonts load)
+            let initialPlayerBottom = window.innerHeight * 0.04; // Simple guess
             player.style.left = `${playerX}px`;
-            player.style.bottom = `${BORDER_MARGIN + BOTTOM_BORDER_OFFSET -25}px`;
+            player.style.bottom = `${initialPlayerBottom}px`;
 
-            // Create initial game elements
+            // Add flowers if level 1
             if (gameLevel === 1) {
                 addFlowers();
             }
             
-            // Draw the borders
+            // --- Wait for fonts to load before final sizing and drawing ---
+            try {
+                await document.fonts.ready; 
+                console.log('Fonts loaded, proceeding with final layout.');
+            } catch (error) {
+                console.error('Font loading error or timeout:', error);
+            }
+            // -------------------------------------------------------------
+
+            // Calculate final sizes ONCE *after* fonts are ready
+            setCharacterSizes(); 
+
+            // Update player position AGAIN with accurate sizes
+            playerX = WINDOW_WIDTH / 2; // Recenter based on final width
+            player.style.left = `${playerX}px`; 
+            // Set bottom edge of player to align exactly with gameAreaBottom
+            player.style.bottom = `${WINDOW_HEIGHT - gameAreaBottom}px`; 
+            
+            // Draw the borders using final dimensions
             draw();
+            
+            // Create alien and ball using final dimensions
             createAlien();  
             document.getElementById('Alien').style.display = 'block';  
             createBall();
@@ -130,10 +253,31 @@
                 moveBalls: setInterval(moveBalls, 20),
                 moveAlien: setInterval(moveAlien, 20),
                 updatePlayer: setInterval(updatePlayer, 10),
-                moveLasers: setInterval(moveLasers, 15)
+                moveLasers: setInterval(moveLasers, 15),
+                createBonus: setInterval(createBonus, 5000), // Create a bonus every 5 seconds
+                moveBonuses: setInterval(moveBonuses, 20),   // Move bonuses at same rate as balls
+                moveBees: setInterval(moveBees, 25) // Move bees 
             };
             console.log("gameIntervals ReCreated")
             console.log(balls.length)
+
+            levelMessageContainer = document.getElementById('levelMessageContainer');
+            beehiveIconElement = document.getElementById('beehiveDefenseIcon'); // Cache icon
+            scoreElement = document.getElementById('score'); 
+            
+            // Initialize the beehive icon directly here
+            if (beehiveIconElement) {
+                console.log("Found beehiveIconElement during initialization.", beehiveIconElement);
+                beehiveIconElement.innerHTML = '&#x1F41D;'; // Bee emoji
+                // REMOVED: beehiveIconElement.addEventListener('click', launchBeeSwarm); 
+                // console.log("Listener ADDED to beehiveIconElement."); // Log no longer accurate
+            } else {
+                console.error("FAILED to find beehiveIconElement during initialization.");
+            }
+            
+            // REMOVED call to initializeBeehiveIcon();
+
+            // ... (rest of initialization)
         }
 
         // Add start button listener
@@ -164,6 +308,23 @@
                 laser.destroy();
             }
 
+            // Clear existing bonuses
+            while(bonuses.length > 0) { 
+                const bonus = bonuses.pop();
+                bonus.destroy();
+            }
+
+            // Clear any existing bees & reset beehive
+            while(bees.length > 0) {
+                const bee = bees.pop();
+                bee.destroy();
+            }
+            beehiveReady = true; // Reset readiness
+            if (beehiveIconElement) {
+                beehiveIconElement.classList.remove('cooldown'); // Remove cooldown style
+                beehiveIconElement.innerHTML = '&#x1F41D;'; // Ensure bee icon
+            }
+
             // Reset and recreate alien
             const oldAlien = aliens.pop();
             if (oldAlien && oldAlien.element) {
@@ -182,6 +343,7 @@
             // Initialize fresh game
             console.log("Game Restarted with score reset to: " + score);
             initializeGame();
+           
         }
 
        
@@ -194,20 +356,21 @@
 
         // Initialize canvas
         const canvas = document.querySelector('#canvas');
-        canvas.width = WINDOW_WIDTH;
-        canvas.height = WINDOW_HEIGHT;
+        // canvas.width = WINDOW_WIDTH; // Initial width setting might be redundant now
+        // canvas.height = WINDOW_HEIGHT; // Initial height setting might be redundant now
         
-        const BORDER_WIDTH = 100;
-        const BOTTOM_BORDER_WIDTH = 200;
-        const BORDER_OFFSET = BORDER_WIDTH / 2;
-        const BOTTOM_BORDER_OFFSET = BOTTOM_BORDER_WIDTH / 2;
+        // REMOVE old const declarations from here
+        // const BORDER_WIDTH = 100;
+        // const BOTTOM_BORDER_WIDTH = 200;
+        // const BORDER_OFFSET = BORDER_WIDTH / 2;
+        // const BOTTOM_BORDER_OFFSET = BOTTOM_BORDER_WIDTH / 2;
 
         // Add game state variable
         let isGamePaused = false;
 
         // Game configuration constants
         const cMAXBALLS = 10;
-        const cPARTICLES = true;
+        const cPARTICLES = false;
         const LASER_HITBOX_WIDTH = 25; // Width of laser collision detection in pixels
         let score = 0; // Game score - global variable
 
@@ -234,26 +397,55 @@
         }
        
         function addFlowers() {
-              // Add 4 baby flowers, these must be protected or it is game over! 
-              const positions = [-62, -14, 35, 88];
-              varFlowerNum = 0;
+            const flowerHeightEstimate = BALL_SIZE * 0.8; // Estimate flower height
+            const verticalGap = 10; // Gap between rows
+            const bottomRowBottomPosition = BORDER_MARGIN + verticalGap; // Position first row near bottom border
+            const secondRowBottomPosition = bottomRowBottomPosition + flowerHeightEstimate + verticalGap; // Position second row above first
 
-            positions.forEach(pos => {
-                varFlowerNum += 1; 
+            // --- First (Lowest) Row of Flowers (5 total) ---
+            const bottomPositions = [-110, -62, -14, 35, 88]; // Horizontal offsets from center
+            var bottomFlowerNum = 0;
+
+            bottomPositions.forEach(pos => {
+                bottomFlowerNum += 1; 
                 const flower = document.createElement('div');
-                flower.className = 'static-flower';
+                flower.className = 'static-flower bottom-flower'; // Keep static-flower class
                 flower.style.left = `calc(50% + ${pos}px)`;
-                // Add different animation delay for each flower
-                flower.style.setProperty('--pulse-delay', `${varFlowerNum * 0.3}s`);
+                flower.style.bottom = `${bottomRowBottomPosition}px`; // Explicitly set bottom position
+                flower.style.setProperty('--pulse-delay', `${bottomFlowerNum * 0.3}s`);
                 
-                if (varFlowerNum % 2 === 0) {
-                   flower.innerHTML = '&#x1F33A;'
-                }else {
-                    flower.innerHTML = '&#x1F337;'
+                if (bottomFlowerNum % 2 === 0) {
+                   flower.innerHTML = '&#x1F33A;'; // Hibiscus
+                } else {
+                    flower.innerHTML = '&#x1F337;'; // Tulip
                 }
                
                 document.body.appendChild(flower);
             });
+
+            // --- Second Row of Flowers (Above First Row, 5 total) ---
+            const secondRowCount = 5;
+            const gapWidth = gapEndX - gapStartX;
+            const horizontalSpacing = gapWidth / (secondRowCount + 1); // Divide gap width for spacing
+            var secondRowFlowerNum = 0;
+
+            for (let i = 1; i <= secondRowCount; i++) {
+                secondRowFlowerNum += 1;
+                const flower = document.createElement('div');
+                flower.className = 'static-flower second-row-flower'; // Keep static-flower, add specific class
+                const flowerX = gapStartX + (horizontalSpacing * i); // Position relative to gap start
+                flower.style.left = `${flowerX}px`;
+                flower.style.bottom = `${secondRowBottomPosition}px`; // Position above the first row
+                flower.style.setProperty('--pulse-delay', `${(bottomFlowerNum + secondRowFlowerNum) * 0.2}s`); // Vary delay
+
+                if (secondRowFlowerNum % 2 === 0) {
+                   flower.innerHTML = '&#x1F33B;'; // Sunflower
+                } else {
+                    flower.innerHTML = '&#x1F33C;'; // Blossom
+                }
+
+                document.body.appendChild(flower);
+            }
         }
         function draw() {
             const canvas = document.querySelector('#canvas');
@@ -262,46 +454,14 @@
             }
             const ctx = canvas.getContext('2d');
 
-            // Clear with black background
-            // ctx.fillStyle = 'black';
-            // ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            ctx.strokeStyle = 'gold';
-            
-            // Draw top border
-           
-            ctx.lineWidth = BORDER_WIDTH;
-            ctx.beginPath();
-            ctx.moveTo(BORDER_MARGIN, BORDER_MARGIN);
-            ctx.lineTo(GAME_WIDTH + BORDER_MARGIN, BORDER_MARGIN);
-            ctx.stroke();
+            // --- Keep Canvas Clearing (for background/particles) ---
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // --- End of Clearing ---
 
-            // Draw right border
-            ctx.beginPath();
-            ctx.moveTo(GAME_WIDTH + BORDER_MARGIN - BORDER_OFFSET, BORDER_MARGIN + BORDER_OFFSET);
-            ctx.lineTo(GAME_WIDTH + BORDER_MARGIN - BORDER_OFFSET, GAME_HEIGHT + BORDER_MARGIN + BORDER_OFFSET);
-            ctx.stroke();
-
-            // Draw left border
-            ctx.beginPath();
-            ctx.moveTo(BORDER_MARGIN, BORDER_MARGIN);
-            ctx.lineTo(BORDER_MARGIN, GAME_HEIGHT + BORDER_MARGIN);
-            ctx.stroke();
-
-            // Draw bottom border with gap in center
-            ctx.lineWidth = BOTTOM_BORDER_WIDTH;
-            
-            // Left section of bottom border
-            ctx.beginPath();
-            ctx.moveTo(BORDER_MARGIN - BORDER_WIDTH/2, GAME_HEIGHT + BORDER_MARGIN);
-            ctx.lineTo((WINDOW_WIDTH/2) - 100, GAME_HEIGHT + BORDER_MARGIN);
-            ctx.stroke();
-            
-            // Right section of bottom border
-            ctx.beginPath();
-            ctx.moveTo((WINDOW_WIDTH/2) + 100, GAME_HEIGHT + BORDER_MARGIN);
-            ctx.lineTo(GAME_WIDTH + BORDER_MARGIN + BORDER_WIDTH/2, GAME_HEIGHT + BORDER_MARGIN);
-            ctx.stroke();
+            // --- REMOVED ALL ctx.stroke() and OVERLAY CREATION ---
+            // The border visuals are now handled by HTML/CSS
+            // --- END OF REMOVALS ---
         }
 
         // ****** Laser Class *****************************
@@ -346,11 +506,16 @@
                 this.color = color;
                 this.x = x;
                 this.y = y;
-                this.speed = speed;
+                this.initialY = y; // Store initial Y
+                this.baseSpeed = speed; // Store base horizontal speed
+                this.speed = speed; // Current horizontal speed
                 this.isHit = false;
-                this.isDefeated = false; // Flag to track if alien is already defeated
-                cTEST_MODE ? this.health = 20 : this.health = 100 
+                this.isDefeated = false; 
+                cTEST_MODE ? this.health = 20 : this.health = 100; 
                 
+                this.isBerserk = false; // <<< ADDED: Berserk flag
+                this.berserkTargetY = 0; // <<< ADDED: Target Y for berserk mode
+                this.verticalSpeed = 3; // <<< ADDED: Speed for moving down
             }
 
             create() {
@@ -368,14 +533,30 @@
                 alienElement.style.fontSize = `${ALIEN_SIZE}px`;
                 this.element = alienElement;
 
-                // Reset health bar
+                // Calculate berserk target Y position (needs gameArea boundaries)
+                this.berserkTargetY = gameAreaTop + (gameAreaBottom - gameAreaTop) / 2 - (this.size / 2);
+                console.log(`Alien created. InitialY=${this.initialY.toFixed(2)}, BerserkTargetY=${this.berserkTargetY.toFixed(2)}`);
+
+                // Reset position and health bar
+                this.element.style.top = this.y + 'px';
                 document.getElementById('alienHealthBar').style.width = '100%';
             }
 
             takeDamage() {
-                this.health = Math.max(0, this.health - 4);  // currently 25 hits to level up. 
+                this.health = Math.max(0, this.health - 4);  
                 document.getElementById('alienHealthBar').style.width = `${this.health}%`;
                 
+                // --- Berserk Trigger --- 
+                if (this.health <= 25 && !this.isBerserk) {
+                    console.log("Alien entering BERSERK mode!");
+                    this.isBerserk = true;
+                    // Add visual indicator
+                    if (this.element) {
+                        this.element.classList.add('berserk');
+                    }
+                }
+                // ---------------------
+
                 if (this.health <= 0) {
                     this.defeat();
                 }
@@ -402,42 +583,66 @@
                 // Show level complete message
                 showLevelComplete();
 
-                // Clear existing balls    
+                // Clear any existing balls
                 while(balls.length > 0) {
                     const ball = balls.pop();
                     ball.destroy();
                 }
 
-                // Clear existing lasers
-                while(lasers.length > 0) {
-                    const laser = lasers.pop();
-                    laser.destroy();
+                // Clear any existing bonuses
+                while(bonuses.length > 0) { 
+                    const bonus = bonuses.pop();
+                    bonus.destroy();
                 }
-               
-                // Pause game after animation
-                setTimeout(() => {
-                    // Use pauseGame function instead of directly setting variables
-                    pauseGame();
-                  
-                    // Hide health bar but don't remove the alien
-                    document.getElementById('alienHealthContainer').style.display = 'none';
-                    
-                    // Remove explosion effect
-                    explosion.remove();
-                }, 2000);
+
+                BACKGROUND_MUSIC.pause();  // Stop the music
+
+                // Remove explosion effect
+                explosion.remove();
+
+                // Make sure to remove berserk visual if active
+                if (this.element) {
+                    this.element.classList.remove('berserk');
+                    this.element.classList.add('alien-defeat');
+                }
             }
 
             move() {
-                this.x += this.speed;
+                // --- Calculate Horizontal Speed --- 
+                const levelMultiplier = 1 + (gameLevel - 1) * 0.12; // Existing level scaling
+                const berserkMultiplier = this.isBerserk ? 1.8 : 1; // Speed boost for berserk
+                const currentHorizontalSpeed = this.baseSpeed * levelMultiplier * berserkMultiplier;
+                let horizontalDirection = Math.sign(this.speed); // Get current direction (-1 or 1)
+                this.speed = currentHorizontalSpeed * horizontalDirection; // Apply speed with direction
+                // ----------------------------------
 
-                // Account for border width in boundaries
-                if (this.x < BORDER_MARGIN + BORDER_OFFSET || 
-                    this.x > GAME_WIDTH + BORDER_MARGIN - BORDER_OFFSET - this.size) {
-                    this.speed = this.speed * -1;
+                // --- Vertical Movement (Berserk Transition) ---
+                if (this.isBerserk && this.y < this.berserkTargetY) {
+                    this.y += this.verticalSpeed;
+                    // Clamp Y to targetY if overshot
+                    if (this.y > this.berserkTargetY) {
+                        this.y = this.berserkTargetY;
+                    }
+                } // Add else if later if it needs to move back up?
+                // ---------------------------------------------
+
+                // --- Horizontal Movement & Wall Collision ---
+                this.x += this.speed; 
+                if (this.x < gameAreaLeft || this.x + this.size > gameAreaRight) {
+                    this.speed *= -1; // Reverse direction
+                    // Adjust position slightly
+                    if (this.x < gameAreaLeft) {
+                        this.x = gameAreaLeft;
+                    }
+                    if (this.x + this.size > gameAreaRight) {
+                        this.x = gameAreaRight - this.size;
+                    }
                 }
+                // -----------------------------------------
 
+                // Update element position (Both Left and Top)
                 this.element.style.left = this.x + 'px';
-                this.element.style.top = this.y + 'px';
+                this.element.style.top = this.y + 'px'; 
             }
 
             createExplosion() {
@@ -513,12 +718,13 @@
                 this.x = x;
                 this.y = y;
                 this.type = type; // 'standard' or 'armored'
-                // Health points based on type
                 this.hitPoints = this.type === 'standard' ? 1 : 4;
-                // Scale ball speed with level
-                const levelMultiplier = 1 + (gameLevel - 1) * 0.10; // 10% increase per level
+                const levelMultiplier = 1 + (gameLevel - 1) * 0.10;
                 this.speed = speed * (GAME_WIDTH / 1500) * levelMultiplier;
                 this.angle = angle;
+                this.lastPlayerHitTime = 0;
+                this.playerImmunityEndTime = 0;
+                this.isTargetedByBee = false; // <<< ADDED: Flag for bee targeting
             }
             
             create() {
@@ -586,112 +792,161 @@
             move() {
                 const radianAngle = (this.angle * Math.PI) / 180;
                 const yVelocity = Math.sin(radianAngle) * this.speed;
-
                 const xSpeed = Math.cos(radianAngle) * this.speed;
                 const ySpeed = Math.sin(radianAngle) * this.speed;
 
-                this.x += xSpeed;
-                this.y += ySpeed;
-               
-                // Check side boundaries
-                if (this.x < BORDER_MARGIN + BORDER_OFFSET + this.size / 2 || 
-                    this.x > GAME_WIDTH - BORDER_MARGIN - BORDER_OFFSET - (this.size / 2)) {
+                // 1. Calculate potential next position
+                let potentialX = this.x + xSpeed;
+                let potentialY = this.y + ySpeed;
+
+                // Calculate potential visual edges 
+                const visualLeft = potentialX - this.size / 2;
+                const visualRight = potentialX + this.size / 2;
+                const visualTop = potentialY - this.size / 2;
+                const visualBottom = potentialY + this.size / 2;
+
+                // 2. Perform Wall Collision Checks & Corrections
+                if (visualLeft < gameAreaLeft) {
                     this.angle = 180 - this.angle;
-                    
-                    // Adjust position to avoid getting stuck in the wall
-                    if (this.x < BORDER_MARGIN + BORDER_OFFSET) {
-                        this.x = BORDER_MARGIN + BORDER_OFFSET + this.size / 2;
-                    } 
-                    else if (this.x > GAME_WIDTH + BORDER_MARGIN - BORDER_OFFSET - this.size) {
-                        this.x = GAME_WIDTH + BORDER_MARGIN - BORDER_OFFSET - this.size;
-                    }
+                    potentialX = gameAreaLeft + this.size / 2; 
+                } else if (visualRight > gameAreaRight) {
+                    this.angle = 180 - this.angle;
+                    potentialX = gameAreaRight - this.size / 2; 
                 }
-
-                // Check top boundary
-              
-               
-                if (this.y < ((BORDER_MARGIN + BORDER_OFFSET) + (this.size / 2)) && yVelocity < 0) {
+                if (visualTop < gameAreaTop && yVelocity < 0) { 
                     this.angle = 360 - this.angle;
-                    // Adjust position to avoid getting stuck in the top wall
-                    this.y = BORDER_MARGIN + BORDER_OFFSET + this.size / 2;
+                    potentialY = gameAreaTop + this.size / 2; 
                 }
 
-                // Check bottom boundary and flower collisions
-              
-                if (this.y > GAME_HEIGHT + BORDER_MARGIN - BOTTOM_BORDER_OFFSET) {
-                    const ballCenterX = this.x + this.size/2;
-                    const gapStart = (WINDOW_WIDTH/2) - 100;
-                    const gapEnd = (WINDOW_WIDTH/2) + 100;
-                    
-                    // First check for flower collisions if ball is in the gap area
-                    if (ballCenterX >= gapStart && ballCenterX <= gapEnd) {
-                        // Ball is in the gap - check for flower collisions
-                        const flowers = document.getElementsByClassName('static-flower');
-                        let hitflower = false;
+                // 3. Perform Player Collision Check & Corrections (if immunity allows)
+                const now = Date.now(); 
+                const playerImmunityDuration = 300; 
+                if (now > this.playerImmunityEndTime) {
+                    // Calculate player hitbox boundaries (using reduced size)
+                    const playerBottomYVal = parseFloat(player.style.bottom || '0'); 
+                    const playerTopYVal = WINDOW_HEIGHT - playerBottomYVal - PLAYER_SIZE;
+                    const playerCollisionWidthVal = PLAYER_SIZE * 0.4; 
+                    const playerCollisionHeightVal = PLAYER_SIZE * 0.8; 
+                    const playerVisualOffsetX = playerCollisionWidthVal / 2;
+                    const playerLeftXVal = playerX - playerVisualOffsetX;
+                    const playerRightXVal = playerX + playerVisualOffsetX;
+                    const playerCollisionTopYVal = playerTopYVal + (PLAYER_SIZE - playerCollisionHeightVal) / 2; 
+                    const playerCollisionBottomYVal = playerCollisionTopYVal + playerCollisionHeightVal;
+
+                    // Check for overlap
+                    if (potentialX + this.size / 2 > playerLeftXVal && 
+                        potentialX - this.size / 2 < playerRightXVal &&
+                        potentialY + this.size / 2 > playerCollisionTopYVal && 
+                        potentialY - this.size / 2 < playerCollisionBottomYVal) 
+                    { 
+                        this.playerImmunityEndTime = now + playerImmunityDuration; // Set immunity
+
+                        // Apply Penalty/Boost (separate cooldown)
+                        const playerHitCooldown = 200; 
+                        if (now - this.lastPlayerHitTime > playerHitCooldown) {
+                            // ... (penalty, boost, log, warning effect logic) ...
+                             if (score > 0) { score--; document.getElementById('score').innerHTML = score.toString(); }
+                             this.speed *= 1.2;
+                             this.lastPlayerHitTime = now;
+                             console.log(`Player hit! Score: ${score}, New Ball Speed: ${this.speed.toFixed(2)}`); 
+                             const warningDuration = 400;
+                             applyBorderEffect('border-top', 'warning', warningDuration);
+                             applyBorderEffect('border-left', 'warning', warningDuration);
+                             applyBorderEffect('border-right', 'warning', warningDuration);
+                             applyBorderEffect('border-bottom-left', 'warning', warningDuration);
+                             applyBorderEffect('border-bottom-right', 'warning', warningDuration);
+                        }
                         
+                        // Apply Bounce Physics (Modify potentialX/Y and angle)
+                        if (potentialX < playerLeftXVal || potentialX > playerRightXVal) { 
+                            // SIDE HIT LOGIC (Upper/Lower check based on visual center)
+                             const playerVisualCenterYVal = playerTopYVal + PLAYER_SIZE / 2;
+                             const separationBufferVal = 8; 
+                             if (visualBottom >= playerVisualCenterYVal) { // Lower Half
+                                 if (potentialX < playerX) { this.angle = 45 + (Math.random()*10-5); potentialX = playerLeftXVal - this.size/2 - separationBufferVal; }
+                                 else { this.angle = 135 + (Math.random()*10-5); potentialX = playerRightXVal + this.size/2 + separationBufferVal; }
+                             } else { // Upper Half
+                                 this.angle = 180 - this.angle + playerSpeed * 1.5; 
+                                 this.angle = (this.angle + 360) % 360;
+                                 if (potentialX < playerX) { potentialX = playerLeftXVal - this.size/2 - separationBufferVal; }
+                                 else { potentialX = playerRightXVal + this.size/2 + separationBufferVal; }
+                             }
+                             potentialY -= 1; // Nudge up after side hit
+                             const correctedVisualBottom = potentialY + this.size / 2;
+                             if (correctedVisualBottom > gameAreaBottom) {
+                                 potentialY = gameAreaBottom - this.size / 2 - 1;
+                             }
+                        } else { 
+                            // TOP HIT LOGIC
+                            if (ySpeed > 0) { 
+                                this.angle = 360 - this.angle;
+                                potentialY = playerTopYVal - this.size / 2 -1; // Place slightly above visual top 
+                            } 
+                            // Ignore if moving up
+                        }
+                    }
+                } 
+
+                // 4. Perform Bottom Collision Checks (using potentially modified potentialX/Y)
+                if (potentialY > gameAreaBottom) { // Check ball CENTER against game area bottom
+                    const ballCenterXVal = potentialX;
+
+                    // Check if horizontally within the gap
+                    if (ballCenterXVal >= gapStartX && ballCenterXVal <= gapEndX) {
+                        // Ball is potentially in the flower gap
+                        const flowers = document.getElementsByClassName('static-flower');
+                        // let hitFlower = false; // Flag not needed due to immediate return
                         for (let flower of flowers) {
                             const flowerRect = flower.getBoundingClientRect();
-                            
-                            // Improve collision detection accuracy
-                            const ballCenterX = this.x + this.size/2;
-                            const ballCenterY = this.y + this.size/2;
-                            const flowerCenterX = flowerRect.left + flowerRect.width/2;
-                            const flowerCenterY = flowerRect.top + flowerRect.height/2;
-                            
-                            const dx = ballCenterX - flowerCenterX;
-                            const dy = ballCenterY - flowerCenterY;
-                            const distance = Math.sqrt(dx * dx + dy * dy);
-                            
-                            if (distance < (this.size/2 + flowerRect.width/2)) {
+                            const flowerCenterXVal = flowerRect.left + flowerRect.width / 2;
+                            const flowerCenterYVal = flowerRect.top + flowerRect.height / 2;
+                            const dxVal = ballCenterXVal - flowerCenterXVal;
+                            // Use potentialY for ball's vertical center check
+                            const dyVal = potentialY - flowerCenterYVal;
+                            const distanceVal = Math.sqrt(dxVal*dxVal + dyVal*dyVal);
+
+                            // Check collision based on ball radius and flower radius (approx)
+                            if (distanceVal < (this.size / 2 + flowerRect.width / 2)) {
+                                // hitFlower = true; // Mark that a flower was hit
                                 createFlowerDeathAnimation(flower);
                                 setTimeout(() => {
                                     flower.remove();
-                                    // Check for game over after flower is removed
                                     if (document.getElementsByClassName('static-flower').length === 0) {
-                                        // Delay game over to allow animation to complete
-                                        setTimeout(() => {
-                                            endGame();
-                                        }, 1000);
+                                        setTimeout(endGame, 1000);
                                     }
                                 }, 100);
-                                
                                 this.destroy();
                                 balls.splice(balls.indexOf(this), 1);
-                                hitflower = true;
-                                return;
+                                return; // Destroyed - exit function immediately
                             }
                         }
+                        // If loop completes and no flower was hit, ball passes through gap.
+                        // Position (potentialX, potentialY) will be updated at the end.
 
-                        // If ball is in gap area but didn't hit a flower, remove it
-                        if (!hitflower && this.y > GAME_HEIGHT + BORDER_MARGIN - BOTTOM_BORDER_OFFSET) {
-                            this.destroy();
-                            balls.splice(balls.indexOf(this), 1);
-                            return;
+                    } else {
+                        // Hit solid bottom border - Bounce logic
+                        // Calculate current Y speed again to ensure we bounce only when moving down
+                        const currentRadianAngle = (this.angle * Math.PI) / 180;
+                        const currentYSpeed = Math.sin(currentRadianAngle) * this.speed;
+
+                        if (currentYSpeed > 0) { // Only bounce if moving down
+                            this.angle = 360 - this.angle;
+                            // Correct position to be just above the border line
+                            potentialY = gameAreaBottom - this.size / 2 - 1; // Place edge slightly above
                         }
-                    }
-                    // Then check for collisions with bottom boundary or gap edges
-                    else if (ballCenterX < gapStart + this.size/2 && ballCenterX > gapStart - this.size/2) {
-                        // Hit left edge of gap - bounce like left wall
-                        this.angle = 180 - this.angle;
-                        // Move the ball away from the edge
-                        this.x = gapStart - this.size;
-                    } 
-                    else if (ballCenterX > gapEnd - this.size/2 && ballCenterX < gapEnd + this.size/2) {
-                        // Hit right edge of gap - bounce like right wall
-                        this.angle = 180 - this.angle;
-                        // Move the ball away from the edge
-                        this.x = gapEnd;
-                    } 
-                    else if (ballCenterX < gapStart || ballCenterX > gapEnd) {
-                        // Normal bottom border bounce
-                        this.angle = 360 - this.angle;
-                        // Adjust position to avoid getting stuck in the bottom wall
-                        this.y = GAME_HEIGHT + BORDER_MARGIN - BOTTOM_BORDER_OFFSET - this.size;
+                        // If moving up towards the border, let it pass (position updated at end)
                     }
                 }
 
-                this.element.style.left = this.x + 'px';
-                this.element.style.top = this.y + 'px';
+                // 5. Final Position Update (Always happens unless returned early after flower hit)
+                this.x = potentialX;
+                this.y = potentialY;
+
+                // 6. Update element style 
+                if (this.element && this.element.parentNode) {
+                     this.element.style.left = this.x + 'px';
+                     this.element.style.top = this.y + 'px';
+                }
             }
             isColliding(x, y, size) {
                 const ballCenterX = this.x + this.size/2;
@@ -747,16 +1002,359 @@
                 }, 300);
             }
         }
+
+        function draw() {
+            const canvas = document.querySelector('#canvas');
+            if (!canvas.getContext) {
+                return;
+            }
+            const ctx = canvas.getContext('2d');
+
+            // --- Keep Canvas Clearing (for background/particles) ---
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // --- End of Clearing ---
+
+            // --- REMOVED ALL ctx.stroke() and OVERLAY CREATION ---
+            // The border visuals are now handled by HTML/CSS
+            // --- END OF REMOVALS ---
+        }
+
+        // ****** Bonus Class (For adding bonus boxes to the screen that the player can hit to collect points*********)
+        class Bonus {
+            constructor(startYPosition) { // Renamed parameter for clarity
+                this.size = BALL_SIZE * 0.7; 
+                this.value = 5 * (Math.floor(Math.random() * 6) + 1);
+                const baseSpeed = 8 * (GAME_WIDTH / 1500); 
+                const levelMultiplier = 1 + (gameLevel - 1) * 0.08; 
+                this.speed = baseSpeed * levelMultiplier;
+
+                // --- Sine Wave & Direction --- 
+                this.direction = Math.random() < 0.5 ? 1 : -1; // 1 = R->L, -1 = L->R
+                this.startY = startYPosition; // Vertical center of the wave
+                this.amplitude = Math.random() * 80 + 40; // Random wave height (20 to 60px)
+                this.frequency = Math.random() * 0.02 + 0.01; // Random wave tightness (0.01 to 0.03)
+                this.time = 0; // Time variable for sine wave calculation
+                
+                // Set initial X based on direction
+                if (this.direction === 1) {
+                    this.x = gameAreaRight + this.size; // Start off-screen right
+                } else {
+                    this.x = gameAreaLeft - this.size; // Start off-screen left
+                }
+                this.y = this.startY; // Initial Y position
+                // --- End Sine Wave & Direction ---
+
+                this.element = null;
+            }
+
+            create() {
+                const bonusElement = document.createElement('div');
+                bonusElement.className = 'bonus'; 
+                // --- Dynamic Styles (Set via JS) ---
+                bonusElement.style.width = `${this.size}px`;
+                bonusElement.style.height = `${this.size}px`;
+                bonusElement.style.position = 'absolute'; // Keep position absolute for JS control
+                bonusElement.style.left = `${this.x}px`;
+                bonusElement.style.top = `${this.y}px`; // Use initial Y
+                bonusElement.style.fontSize = `${this.size * 0.5}px`; 
+                bonusElement.textContent = this.value; 
+
+                document.body.appendChild(bonusElement);
+                this.element = bonusElement;
+            }
+
+            move() {
+                // Update horizontal position based on direction
+                this.x += this.speed * this.direction * -1; // -1 because direction 1 means R->L (negative X movement)
+                
+                // Update vertical position using sine wave
+                this.time += 1;
+                this.y = this.startY + this.amplitude * Math.sin(this.frequency * this.time);
+                
+                // Clamp Y to stay within game area boundaries (optional but good practice)
+                this.y = Math.max(gameAreaTop + this.size / 2, 
+                                Math.min(this.y, gameAreaBottom - this.size / 2));
+
+                if (this.element) {
+                    this.element.style.left = `${this.x}px`;
+                    this.element.style.top = `${this.y}px`;
+                }
+
+                // Check if off-screen (adjust for both directions)
+                const isOffScreenLeft = this.direction === 1 && (this.x + this.size < gameAreaLeft);
+                const isOffScreenRight = this.direction === -1 && (this.x > gameAreaRight);
+
+                if (isOffScreenLeft || isOffScreenRight) {
+                    this.destroy();
+                    const index = bonuses.indexOf(this);
+                    if (index > -1) {
+                        bonuses.splice(index, 1);
+                    }
+                }
+            }
+
+            // Method called when hit by a laser
+            hit() {
+                score += this.value; // Award points
+                document.getElementById('score').innerHTML = score.toString();
+                // TODO: Play bonus collect sound
+                // BONUS_COLLECT_SOUND.currentTime = 0;
+                // BONUS_COLLECT_SOUND.play();
+
+                this.createHitEffect(); // Trigger visual effect
+                this.destroy(); // Remove element
+
+                // Find and remove from the global bonuses array immediately
+                const index = bonuses.indexOf(this);
+                if (index > -1) {
+                    bonuses.splice(index, 1);
+                }
+            }
+
+            createHitEffect() {
+                // Dramatic particle effect (e.g., purple/gold particles)
+                const numParticles = 25;
+                const effectContainer = document.createElement('div');
+                effectContainer.style.position = 'absolute';
+                // Center the effect on the bonus's last position
+                effectContainer.style.left = (this.x + this.size / 2) + 'px';
+                effectContainer.style.top = (this.y + this.size / 2) + 'px';
+                effectContainer.style.zIndex = '1100'; // Above other elements
+
+                for (let i = 0; i < numParticles; i++) {
+                    const particle = document.createElement('div');
+                    particle.style.position = 'absolute';
+                    particle.style.width = '8px'; // Slightly larger particles
+                    particle.style.height = '8px';
+                    // Alternate colors
+                    particle.style.backgroundColor = i % 2 === 0 ? 'gold' : 'purple';
+                    particle.style.borderRadius = '50%';
+                    particle.style.boxShadow = `0 0 5px ${particle.style.backgroundColor}`; // Glow
+                    particle.style.pointerEvents = 'none';
+
+                    // Similar explosion animation to balls/alien
+                    const angle = Math.random() * 360;
+                    const distance = 50 + Math.random() * 40;
+                    const tx = Math.cos(angle * Math.PI / 180) * distance;
+                    const ty = Math.sin(angle * Math.PI / 180) * distance;
+
+                    particle.style.animation = 'explode 0.5s ease-out forwards'; // Longer duration
+                    particle.style.setProperty('--tx', `${tx}px`);
+                    particle.style.setProperty('--ty', `${ty}px`);
+
+                    effectContainer.appendChild(particle);
+                }
+
+                document.body.appendChild(effectContainer);
+
+                // Remove effect container after animation
+                setTimeout(() => {
+                    if (effectContainer.parentNode) {
+                        effectContainer.parentNode.removeChild(effectContainer);
+                    }
+                }, 500); // Match animation duration
+            }
+
+
+            destroy() {
+                if (this.element && this.element.parentNode) {
+                    this.element.parentNode.removeChild(this.element);
+                    this.element = null; // Clear reference
+                }
+            }
+        }
+                // ****** Bee Class (For the Beehive Defense) *********
+        class Bee {
+            constructor(startX, startY) {
+                this.size = 24; 
+                this.x = startX;
+                this.y = startY;
+                this.baseSpeed = 4 + Math.random() * 2; 
+                this.speed = this.baseSpeed; 
+                this.drift = (Math.random() - 0.5) * 1; 
+                this.element = null;
+                this.targetBall = null; 
+                this.state = 'seeking'; 
+                
+                // <<< ADDED: Idle Target Initialization >>>
+                this.setNewIdleTarget(); 
+            }
+
+            // <<< ADDED: Helper function to set a new random idle target >>>
+            setNewIdleTarget() {
+                // Ensure gameArea boundaries are defined before calling this
+                const padding = this.size * 2; // Keep away from edges
+                this.idleTargetX = gameAreaLeft + padding + Math.random() * (gameAreaRight - gameAreaLeft - 2 * padding);
+                // Target upper 2/3rds of the game area for patrolling
+                this.idleTargetY = gameAreaTop + padding + Math.random() * ((gameAreaBottom - gameAreaTop) * 0.66 - padding);
+                console.log(`Bee ${this.element?.id || 'New'} set new idle target: (${this.idleTargetX.toFixed(2)}, ${this.idleTargetY.toFixed(2)})`);
+            }
+
+            create() {
+                const beeElement = document.createElement('div');
+                beeElement.className = 'bee';
+                beeElement.innerHTML = '&#x1F41D;'; // Honeybee emoji
+                beeElement.style.left = `${this.x - this.size / 2}px`; // Center horizontally
+                beeElement.style.top = `${this.y - this.size / 2}px`; // Center vertically
+                beeElement.style.fontSize = `${this.size}px`; // Ensure size matches
+                // Other styles like position: absolute are handled by CSS
+                console.log(`Bee element created with style: left=${beeElement.style.left}, top=${beeElement.style.top}`); // <<< LOG ELEMENT STYLE
+                document.body.appendChild(beeElement);
+                this.element = beeElement;
+            }
+
+            move() {
+                const oldY = this.y;
+                const oldX = this.x;
+                let moveDescription = "Default"; // Simplified log description
+
+                // --- State-Based Movement --- 
+                if (this.state === 'attacking') {
+                    // ... (Target validation logic remains the same) ...
+                    if (!this.targetBall || this.targetBall.element === null || !balls.includes(this.targetBall)) {
+                        // ... (Handle lost target -> seeking) ...
+                        console.log(`Bee ${this.element?.id || 'N/A'} lost target, switching to seeking.`);
+                        if(this.targetBall) this.targetBall.isTargetedByBee = false; // Clear flag if target existed
+                        this.targetBall = null;
+                        this.state = 'seeking'; // Go back to seeking/idle behavior
+                        this.speed = this.baseSpeed; // Reset speed
+                        // Seeking/Idle movement will be handled in the else block below for this frame
+                        moveDescription = "Target Lost -> Seeking/Idle";
+                    } else {
+                        // 2. Move Towards Target & Check Collision
+                        moveDescription = "Attacking";
+                        const targetX = this.targetBall.x;
+                        const targetY = this.targetBall.y;
+                        const dx = targetX - this.x;
+                        const dy = targetY - this.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        this.speed = this.baseSpeed * 1.5; 
+
+                        if (distance < 10) { // Increased hit distance slightly
+                             console.log(`Bee ${this.element?.id || 'N/A'} hit target Ball! Switching to Exiting.`);
+                             
+                             // Process ball hit
+                             let ballDestroyed = false;
+                             if(this.targetBall.takeDamage()) { 
+                                this.targetBall.createExplosion();
+                                this.targetBall.destroy(); 
+                                // Ensure removal from balls array if destroy didn't handle it
+                                const ballArrayIndex = balls.indexOf(this.targetBall);
+                                if(ballArrayIndex > -1) balls.splice(ballArrayIndex, 1); 
+                                ballDestroyed = true;
+                             }
+                            
+                            // Clear target reference and flag LAST
+                            this.targetBall.isTargetedByBee = false; 
+                            this.targetBall = null; 
+                            
+                            // Change bee state and speed for exit
+                            this.state = 'exiting';
+                            this.speed = this.baseSpeed * 2; // Faster exit speed
+                            moveDescription = "Hit Target -> Exiting";
+                            // --- Bee continues to move in this frame, handled by 'exiting' state below --- 
+
+                        } else {
+                            // Move towards target (Attacking)
+                            this.x += (dx / distance) * this.speed;
+                            this.y += (dy / distance) * this.speed;
+                        }
+                    }
+                } 
+
+                // Handle Exiting state
+                else if (this.state === 'exiting') {
+                    moveDescription = 'Exiting';
+                    this.y -= this.speed; // Move straight up
+                    // Optional: Add slight horizontal drift back?
+                    // this.x += this.drift * 0.2;
+
+                    // Check if off-screen top during exit
+                    const topBoundary = gameAreaTop; 
+                    if (this.y + this.size < topBoundary) { 
+                        console.log(`Bee ${this.element?.id || 'N/A'} destroyed (Exited screen top)`); 
+                        this.destroy(); 
+                        return; // Stop further processing for this destroyed bee
+                    } 
+                }
+                
+                // Handle Seeking/Idle state 
+                else if (this.state === 'seeking' || this.state === 'idle') { 
+                     // ... (Seeking/Idle logic remains the same) ...
+                     moveDescription = this.state; // Set description based on current state
+                    const targetX = this.idleTargetX;
+                    const targetY = this.idleTargetY;
+                    const dx = targetX - this.x;
+                    const dy = targetY - this.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    this.speed = this.baseSpeed; // Use base speed for idle
+
+                    if (distance < 15) { // Close enough to idle target
+                        this.setNewIdleTarget(); // Get a new patrol point
+                    } else {
+                        // Move towards idle target
+                        this.x += (dx / distance) * this.speed;
+                        this.y += (dy / distance) * this.speed;
+                    }
+                }
+                // --------------------------
+
+                // Update element position (if not destroyed during exit check)
+                if (this.element) {
+                    this.element.style.top = `${this.y}px`;
+                    this.element.style.left = `${this.x}px`;
+                }
+
+                // General Off-screen Check (redundant if handled in Exiting state? Keep as failsafe for now?)
+                // Let's remove this for now, rely on the Exiting state check.
+                /*
+                const topBoundary = gameAreaTop; 
+                if (this.state !== 'attacking' && this.y + this.size < topBoundary) { 
+                    console.log(`Bee ${this.element?.id || 'N/A'} destroyed (Off-screen top - Failsafe)`); 
+                    this.destroy(); 
+                }
+                */
+            }
+
+            checkCollision(ball) {
+                // Requires ball.x, ball.y, ball.size
+                const dx = this.x - ball.x;
+                const dy = this.y - ball.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                // Check if distance is less than sum of radii (approximate)
+                return distance < (this.size / 2 + ball.size / 2);
+            }
+
+            destroy() {
+                // Clear target flag on the ball if this bee had one
+                if (this.targetBall) {
+                    console.log(`Bee ${this.element?.id || 'N/A'} destroyed, clearing target flag on ball.`);
+                    this.targetBall.isTargetedByBee = false;
+                    this.targetBall = null; // Clear own reference
+                }
+                // Original destroy logic
+                if (this.element && this.element.parentNode) {
+                    this.element.parentNode.removeChild(this.element);
+                    this.element = null;
+                }
+            }
+        }
+
         const balls = [];
         const lasers = [];
         const aliens = [];
+        const bonuses = []; // Array to hold active bonus boxes
+        const bees = []; 
 
         function createAlien() {
-            const x = GAME_WIDTH / 3 + BORDER_MARGIN + BORDER_OFFSET;
-            const y = BORDER_MARGIN + BORDER_OFFSET - 50;
+            // Place alien relative to game area boundaries
+            const x = gameAreaLeft + (gameAreaRight - gameAreaLeft) / 3; // Approx 1/3 across game area
+            const y = gameAreaTop - ALIEN_SIZE / 2; // Position top edge slightly above game area top
             const baseSpeed = 5 * (GAME_WIDTH / 1500);
-            // Scale alien speed with level
-            const speed = baseSpeed * (1 + (gameLevel - 1) * 0.12); // 12% increase per level
+            const speed = baseSpeed * (1 + (gameLevel - 1) * 0.12); 
             const alien = new Alien(ALIEN_SIZE, getRandomColor(), x, y, speed);
             alien.create();
             aliens.push(alien);
@@ -770,29 +1368,20 @@
         }
 
         function calculateBankShot(startX, startY, targetX, targetY) {
-            // Choose either left or right wall for the bank
             const useLeftWall = Math.random() < 0.5;
-            const wallX = useLeftWall ? (BORDER_MARGIN + BORDER_OFFSET) : (GAME_WIDTH + BORDER_MARGIN - BORDER_OFFSET);
+            // Use game area boundaries for wall X
+            const wallX = useLeftWall ? gameAreaLeft : gameAreaRight;
             
-            // Find a reflection point that would reach the target
-            // Using similar triangles principle for reflection
             const dx = targetX - wallX;
             const dy = targetY - startY;
+            const wallY = startY + (dy / 2);  
             
-            // Calculate wall Y position that would result in hitting the target
-            // For left wall: targetX - wallX = positive
-            // For right wall: targetX - wallX = negative
-            // This ensures the reflection angle works for both walls
-            const wallY = startY + (dy / 2);  // Midpoint in Y direction
-            
-            // Verify the wall Y is within bounds
-            const minWallY = BORDER_MARGIN + BORDER_OFFSET;
-            const maxWallY = GAME_HEIGHT + BORDER_MARGIN - BORDER_OFFSET * 2;
+            // Use game area boundaries for wall Y clamping
+            const minWallY = gameAreaTop;
+            const maxWallY = gameAreaBottom;
             const clampedWallY = Math.max(minWallY, Math.min(maxWallY, wallY));
             
-            // Calculate angle to the reflection point
             const angleToWall = calculateAngleToTarget(startX, startY, wallX, clampedWallY);
-            
             return angleToWall;
         }
 
@@ -803,8 +1392,14 @@
                 return;
             }
 
-            const x = aliens[0].x + (ALIEN_SIZE / 2);
-            const y = BORDER_MARGIN + BORDER_OFFSET + (ALIEN_SIZE / 2);
+            // Position ball start relative to alien center and game area top
+            const alien = aliens[0]; // Get alien reference
+            if (!alien) return; // Don't create if alien doesn't exist
+
+            const alienCenterX = alien.x + alien.size / 2;
+            const alienCenterY = alien.y + alien.size / 2; // <<< USE CURRENT ALIEN Y
+            const x = alienCenterX;
+            const y = alienCenterY; 
             const speed = 5 * (GAME_WIDTH / 1500);
 
             // Get flower positions
@@ -885,6 +1480,8 @@
                 isMovingLeft = true;
             } else if (event.key === 'ArrowRight') {
                 isMovingRight = true;
+            } else if (event.key === '1') { // <<< ADDED: Check for '1' key
+                launchBeeSwarm(); // Launch bees
             }
         });
 
@@ -905,7 +1502,6 @@
             } else if (isMovingRight && !isMovingLeft) {
                 playerSpeed = Math.min(MAX_PLAYER_SPEED, playerSpeed + ACCELERATION);
             } else {
-                // Apply deceleration when no keys are pressed or both keys are pressed
                 if (playerSpeed > 0) {
                     playerSpeed *= DECELERATION;
                     if (playerSpeed < 0.1) playerSpeed = 0;
@@ -918,11 +1514,19 @@
             // Apply player speed
             playerX += playerSpeed;
 
-            // Account for border width in boundaries and keep player above bottom border
-            playerX = Math.max(BORDER_MARGIN + BORDER_OFFSET, 
-                             Math.min(playerX, GAME_WIDTH + BORDER_MARGIN - BORDER_OFFSET));
+            // Player visual width calculation
+            const playerVisualWidth = PLAYER_SIZE * 0.6; 
+            const playerVisualOffset = playerVisualWidth / 2;
+
+            // Constrain player horizontal movement
+            playerX = Math.max(gameAreaLeft + playerVisualOffset, 
+                             Math.min(playerX, gameAreaRight - playerVisualOffset));
+                             
+            // Update player style
             player.style.left = playerX + 'px';
-            player.style.bottom = `${BORDER_MARGIN + BOTTOM_BORDER_OFFSET -25}px`;
+            // Keep bottom position fixed relative to gameAreaBottom
+            // No need to update bottom every frame unless it changes dynamically
+            // player.style.bottom = `${WINDOW_HEIGHT - gameAreaBottom + 10}px`; // Usually set only once
         }
 
         // Window resize handling
@@ -942,6 +1546,7 @@
 
             // Redraw border
             draw();
+            
         });
 
         
@@ -949,19 +1554,26 @@
         cMAX_LASERS_AT_ONCE = 5
        
         document.addEventListener('keydown', function (event) {
-          
             if (event.key === ' ' && !isGamePaused) {
-                // Create a new laser and add to lasers collection unless max number of lasers are already on screen 
                 if (lasers.length < cMAX_LASERS_AT_ONCE) {
-                    // Use player position for x coordinate, centered properly
-                    const laser = new Laser(
-                        playerX, // X position centered on player
-                        GAME_HEIGHT + BORDER_MARGIN - BOTTOM_BORDER_OFFSET - (PLAYER_SIZE / 2) // Y position
-                    );
+                    // Position laser start at the player's current visual center
+                    const playerRect = player.getBoundingClientRect(); // Get player position
+                    const laserStartX = playerRect.left + playerRect.width / 2; // Horizontal center
+                    const laserStartY = playerRect.top; // Start at the visual top of the player 
+                    
+                    const laser = new Laser(laserStartX, laserStartY);
                     laser.create();
                     lasers.push(laser);
+                    
                     LASER_SOUND.currentTime = 0; 
                     LASER_SOUND.play();
+                    
+                    // Energy effect at bottom when firing
+                    const xPosition = playerX / WINDOW_WIDTH;
+                   
+                    applyBorderEffect('border-bottom-left', 'energy', 500); // Target DIV ID
+                    applyBorderEffect('border-bottom-right', 'energy', 500); // Target DIV ID
+                   
                 }
             }
         });
@@ -975,82 +1587,126 @@
                 const laser = lasers[i];
                 laser.move();
                 
-                // Check for alien collision first - only process if the alien is not already defeated
-                if (aliens.length > 0 && !aliens[0].isDefeated && aliens[0].isColliding(laser.x, laser.y, LASER_HITBOX_WIDTH)) {
+                // Define laser tip coordinates for clarity
+                const laserTipX = laser.x; 
+                const laserTipY = laser.y;
+                
+                // Check for alien collision (Point-in-Rect check)
+                if (aliens.length > 0 && !aliens[0].isDefeated) {
+                    const alien = aliens[0];
+                    // Check if laser tip is within the alien's bounding box
+                    // Note: Alien position (alien.x, alien.y) is top-left. 
+                    // Alien size is alien.size.
+                    if (laserTipX >= alien.x && laserTipX <= alien.x + alien.size &&
+                        laserTipY >= alien.y && laserTipY <= alien.y + alien.size) 
+                    {
                     laser.destroy();
                     lasers.splice(i, 1);
-                    i--;
+                        i--; // Adjust index after removal
                     
-                    // Chance to create an armored ball increases with level
-                    const armoredChance = Math.min(0.3, 0.1 + (gameLevel - 1) * 0.05); // Up to 30% max
+                        // ... (ball creation logic remains the same) ...
+                         const armoredChance = Math.min(0.3, 0.1 + (gameLevel - 1) * 0.05); 
                     
-                    // Create two balls in response to being hit
                     if (Math.random() < armoredChance) {
-                        createBall("bank", "armored"); // Create an armored ball
-                        createBall("bank", "standard"); // Create a standard ball
+                            createBall("bank", "armored"); 
+                            createBall("bank", "standard");
                     } else {
-                        createBall("bank", "standard"); // Create standard balls
+                            createBall("bank", "standard");
                         createBall("bank", "standard");
                     }
 
-                    aliens[0].takeDamage();  // Decrease alien health
+                        alien.takeDamage();  // Decrease alien health
                    
+                        // Optional: applyBorderEffect('border-top', 'flash'); // Use new border div if needed
                    
-                    score += 5; // Award 5 points for hitting the alien
+                        score += 5; 
                     SPACESHIP_HIT_SOUND.currentTime = 0; 
                     SPACESHIP_HIT_SOUND.play(); 
+                    
+                    applyBorderEffect('topBorderOverlay', 'particles', 2000);
 
                     document.getElementById('score').innerHTML = score.toString();
-                    aliens[0].flash(); // Add flash effect when hit
-                    continue;
-                }
-                
-                // Check for laser / ball collisions
-                for (let j = 0; j < balls.length; j++) {
-                    const ball = balls[j];
-                    if (ball.isColliding(laser.x, laser.y, LASER_HITBOX_WIDTH)) {
-                        // Call takeDamage which returns true if the ball is destroyed
-                        const isDestroyed = ball.takeDamage();
-                        
-                        // Always remove the laser
-                        laser.destroy();
-                        lasers.splice(i, 1);
-                        i--;
-                        
-                        // Only destroy the ball if all hitPoints are gone
-                        if (isDestroyed) {
-                            ball.createExplosion(); // Add explosion effect before destroying the ball
-                            ball.destroy();
-                            balls.splice(j, 1);
-                            
-                            if (ball.type === "armored") {
-                                ARMORED_DEFEAT_SOUND.currentTime = 0;  // Reset sound to start
-                                ARMORED_DEFEAT_SOUND.play();
-                            }
-                            // Award points based on ball type
-                            if (ball.type === 'armored') {
-                                score += 3; // 3 points for armored balls
-                            } else {
-                                score += 1; // 1 point for standard balls
-                            }
-                        }
-                        else {
-                            if (ball.type === "armored") {
-                                ARMORED_HIT_SOUND.currentTime = 0;  // Reset sound to start
-                                ARMORED_HIT_SOUND.play();
-                            }  
-                        }
-                        
-                        document.getElementById('score').innerHTML = score.toString();
-                        break;
+                        alien.flash(); 
+                        continue; // Skip ball collision check for this laser
                     }
                 }
                 
-                // Remove lasers that go off screen
-                if (i >= 0 && laser.y <= BORDER_MARGIN) {
+                // Check for laser / ball collisions
+                // Ball.isColliding uses center-to-center distance, which is correct.
+                // We pass the laser tip (x, y) and a small radius/hitbox size.
+                // Ensure index `i` is still valid after potential alien hit removal
+                if (i < 0 || i >= lasers.length) continue; 
+                
+                for (let j = 0; j < balls.length; j++) {
+                    const ball = balls[j];
+                    // Pass laserTipX, laserTipY which represent the laser's top-center point
+                    if (ball.isColliding(laserTipX, laserTipY, LASER_HITBOX_WIDTH)) { 
+                        const isDestroyed = ball.takeDamage();
+                        
+                        laser.destroy();
+                        lasers.splice(i, 1);
+                        i--; // Adjust index after removing laser
+                        
+                        if (isDestroyed) {
+                            ball.createExplosion();
+                            ball.destroy();
+                            balls.splice(j, 1);
+                            j--; // Adjust index after removing ball
+                            
+                            if (ball.type === 'armored') {
+                                score += 3;
+                                // Optional: applyBorderEffect('border-top', 'particles', 1000); 
+                                ARMORED_DEFEAT_SOUND.currentTime = 0;
+                                ARMORED_DEFEAT_SOUND.play();
+                            } else {
+                                score += 1;
+                            }
+                        } else {
+                            // Optional: applyBorderEffect('border-right', 'glow', 500);
+                            ARMORED_HIT_SOUND.currentTime = 0;
+                            ARMORED_HIT_SOUND.play();
+                        }
+                        
+                        document.getElementById('score').innerHTML = score.toString();
+                        break; // Laser hit a ball, move to next laser
+                    }
+                }
+                
+                // Check for laser / bonus collisions
+                // Ensure laser index `i` is still valid after potential alien/ball hit removal
+                if (i < 0 || i >= lasers.length) continue; 
+
+                for (let k = bonuses.length - 1; k >= 0; k--) {
+                    const bonus = bonuses[k];
+                    if (!bonus || !bonus.element) continue; // Skip if bonus already destroyed
+
+                    // Simple bounding box check: laser tip vs bonus box
+                    const bonusRect = bonus.element.getBoundingClientRect(); 
+                    // Use laserTipX, laserTipY which are the top-center of the laser beam
+                    if (laserTipX >= bonusRect.left && 
+                        laserTipX <= bonusRect.right &&
+                        laserTipY >= bonusRect.top && 
+                        laserTipY <= bonusRect.bottom)
+                    {
+                        bonus.hit(); // Handle bonus collection (awards points, plays sound, removes bonus from array)
+                        // bonuses.splice(k, 1); // Removal is now handled inside bonus.hit()
+
+                        laser.destroy(); // Destroy the laser
+                        lasers.splice(i, 1); // Remove laser from array
+                        i--; // Adjust laser index
+
+                        // TODO: Play bonus collect sound here? (Or confirm it's in bonus.hit())
+                        
+                        break; // Laser hit a bonus, move to next laser
+                    }
+                }
+
+                // Remove lasers that go off screen (using gameAreaTop)
+                // Ensure index `i` is still valid after potential ball/bonus hit removal
+                if (i >= 0 && i < lasers.length && laserTipY <= gameAreaTop) { 
                     laser.destroy();
                     lasers.splice(i, 1);
-                    i--;
+                    i--; // Adjust index after removal
                 }
             }
         }
@@ -1068,15 +1724,24 @@
         init();
         
         function init() {
-            CANVAS.width = WINDOW_WIDTH;
-            CANVAS.height = WINDOW_HEIGHT;
-            
-            // Create and start particles
+            // Initial canvas setup - Use current window dimensions directly
+            CANVAS.width = window.innerWidth;
+            CANVAS.height = window.innerHeight;
+
+            // We will calculate final sizes later in initializeGame after fonts load
+            // setCharacterSizes(); // Remove this initial call
+
+            // Create particles if enabled (might need adjustment if dependent on precise sizes)
+            if (cPARTICLES) { 
+                // If particle creation relies heavily on BORDER_MARGIN etc, 
+                // it might need to move into the initializeGame async block too.
+                // For now, assume it's okay here.
             createParticles();
             loop();
+            }
             
-            // Draw initial borders
-            draw();
+            // Do not draw initially here, wait for initializeGame
+            // draw(); 
         }
 
         function loop() {
@@ -1088,27 +1753,31 @@
             CTX.beginPath();
             CTX.rect(BORDER_MARGIN + BORDER_OFFSET, 
                     BORDER_MARGIN + BORDER_OFFSET, 
-                    GAME_WIDTH - BORDER_WIDTH, 
-                    GAME_HEIGHT - BORDER_WIDTH - (BOTTOM_BORDER_WIDTH - BORDER_WIDTH));
+                    GAME_WIDTH - (2 * BORDER_OFFSET),  // Adjusted width to not overlap borders
+                    GAME_HEIGHT - (2 * BORDER_OFFSET) - (BOTTOM_BORDER_WIDTH - BORDER_WIDTH));
             CTX.clip();
             
             // Clear previous frame completely
             CTX.clearRect(BORDER_MARGIN + BORDER_OFFSET, 
                         BORDER_MARGIN + BORDER_OFFSET, 
-                        GAME_WIDTH - BORDER_WIDTH, 
-                        GAME_HEIGHT - BORDER_WIDTH - (BOTTOM_BORDER_WIDTH - BORDER_WIDTH));
+                        GAME_WIDTH - (2 * BORDER_OFFSET), 
+                        GAME_HEIGHT - (2 * BORDER_OFFSET) - (BOTTOM_BORDER_WIDTH - BORDER_WIDTH));
             
             // Background for depth (completely black)
             CTX.fillStyle = "rgba(0,0,0,1)";
             CTX.fillRect(BORDER_MARGIN + BORDER_OFFSET, 
                         BORDER_MARGIN + BORDER_OFFSET, 
-                        GAME_WIDTH - BORDER_WIDTH, 
-                        GAME_HEIGHT - BORDER_WIDTH - (BOTTOM_BORDER_WIDTH - BORDER_WIDTH));
+                        GAME_WIDTH - (2 * BORDER_OFFSET), 
+                        GAME_HEIGHT - (2 * BORDER_OFFSET) - (BOTTOM_BORDER_WIDTH - BORDER_WIDTH));
+            
             
             // Always render particles
             render();
             
+            
             CTX.restore();
+                
+           
         }
 
         function createParticles() {
@@ -1136,6 +1805,15 @@
                     clearInterval(gameIntervals[interval]);
                     gameIntervals[interval] = null; // Set to null to ensure GC
                 }
+                // Explicitly clear potential lingering references if object wasn't fully cleared
+                gameIntervals.createBall = null;
+                gameIntervals.moveBalls = null;
+                gameIntervals.moveAlien = null;
+                gameIntervals.updatePlayer = null;
+                gameIntervals.moveLasers = null;
+                gameIntervals.createBonus = null; 
+                gameIntervals.moveBonuses = null;
+                gameIntervals.moveBees = null; // Clear bee interval
             }
             
             if (playerPaused) {
@@ -1143,7 +1821,6 @@
             }
            
         }
-
         function unpauseGame() {
             // Always make sure to clear any existing intervals first
             if (gameIntervals) {
@@ -1154,7 +1831,35 @@
             }
             
             isGamePaused = false;
-            pauseButton.textContent = '⏸️'; // Pause symbol
+            pauseButton.textContent =  '⏸️'; // Pause symbol
+            
+            // Restart all game intervals with adjusted speeds
+            gameIntervals = {
+                createBall: setInterval(createBall, 2000),
+                moveBalls: setInterval(moveBalls, 20),
+                moveAlien: setInterval(moveAlien, 20),
+                updatePlayer: setInterval(updatePlayer, 10),
+                moveLasers: setInterval(moveLasers, 15), 
+                createBonus: setInterval(createBonus, 5000), // Create a bonus every 5 seconds
+                moveBonuses: setInterval(moveBonuses, 20),   // Move bonuses at same rate as balls
+                moveBees: setInterval(moveBees, 25) // Move bees 
+            };
+            
+            BACKGROUND_MUSIC.play();  // Resume the music
+        }
+        function levelUp() {
+            // Always make sure to clear any existing intervals first
+            gameLevel++;
+            
+            if (gameIntervals) {
+                for (let interval in gameIntervals) {
+                    clearInterval(gameIntervals[interval]);
+                    gameIntervals[interval] = null;
+                }
+            }
+            
+            isGamePaused = false;
+            pauseButton.textContent =  '⏸️'; // Pause symbol
             
             // Get updated speed values based on current level
             const baseSpeed = 5 * (GAME_WIDTH / 1500);
@@ -1175,6 +1880,9 @@
                 
                 // Reset alien classes to remove defeat animation if present
                 aliens[0].element.className = 'alien';
+                
+                aliens[0].y =  aliens[0].initialY; 
+                aliens[0].isBerserk = false; 
                 
                 // Reset health
                 aliens[0].health = cTEST_MODE ? 20 : 100 
@@ -1197,7 +1905,10 @@
                 moveBalls: setInterval(moveBalls, 20),
                 moveAlien: setInterval(moveAlien, 20),
                 updatePlayer: setInterval(updatePlayer, 10),
-                moveLasers: setInterval(moveLasers, 15)
+                moveLasers: setInterval(moveLasers, 15),
+                createBonus: setInterval(createBonus, 5000), // Create a bonus every 5 seconds
+                moveBonuses: setInterval(moveBonuses, 20),   // Move bonuses at same rate as balls
+                moveBees: setInterval(moveBees, 25) // Move bees 
             };
             
             BACKGROUND_MUSIC.play();  // Resume the music
@@ -1233,7 +1944,6 @@
             } else if (isMovingRight && !isMovingLeft) {
                 playerSpeed = Math.min(MAX_PLAYER_SPEED, playerSpeed + ACCELERATION);
             } else {
-                // Apply deceleration when no keys are pressed or both keys are pressed
                 if (playerSpeed > 0) {
                     playerSpeed *= DECELERATION;
                     if (playerSpeed < 0.1) playerSpeed = 0;
@@ -1246,11 +1956,19 @@
             // Apply player speed
             playerX += playerSpeed;
 
-            // Account for border width in boundaries and keep player above bottom border
-            playerX = Math.max(BORDER_MARGIN + BORDER_OFFSET, 
-                             Math.min(playerX, GAME_WIDTH + BORDER_MARGIN - BORDER_OFFSET));
+            // Player visual width calculation
+            const playerVisualWidth = PLAYER_SIZE * 0.6; 
+            const playerVisualOffset = playerVisualWidth / 2;
+
+            // Constrain player horizontal movement
+            playerX = Math.max(gameAreaLeft + playerVisualOffset, 
+                             Math.min(playerX, gameAreaRight - playerVisualOffset));
+                             
+            // Update player style
             player.style.left = playerX + 'px';
-            player.style.bottom = `${BORDER_MARGIN + BOTTOM_BORDER_OFFSET -25}px`;
+            // Keep bottom position fixed relative to gameAreaBottom
+            // No need to update bottom every frame unless it changes dynamically
+            // player.style.bottom = `${WINDOW_HEIGHT - gameAreaBottom + 10}px`; // Usually set only once
         }
 
         // Add game over function
@@ -1281,6 +1999,23 @@
             while(balls.length > 0) {
                 const ball = balls.pop();
                 ball.destroy();
+            }
+
+            // Clear any existing bonuses
+            while(bonuses.length > 0) { 
+                const bonus = bonuses.pop();
+                bonus.destroy();
+            }
+
+            // Clear any existing bees & reset beehive state
+            while(bees.length > 0) {
+                const bee = bees.pop();
+                bee.destroy();
+            }
+             beehiveReady = true; // Reset readiness
+            if (beehiveIconElement) {
+                beehiveIconElement.classList.remove('cooldown'); // Remove cooldown style
+                beehiveIconElement.innerHTML = '&#x1F41D;'; // Ensure bee icon
             }
 
             BACKGROUND_MUSIC.pause();  // Stop the music
@@ -1347,8 +2082,9 @@
             CANVAS.height = H;
             if (cPARTICLES) { 
                 createParticles();
-            }
             loop();
+            }
+            
         }
 
         // Only initialize canvas and background particles
@@ -1412,13 +2148,317 @@
                 // Remove messages and unpause game
                 setTimeout(() => {
                     container.innerHTML = '';
-                    gameLevel++;
-                    unpauseGame();  // Use the unified unpause function
+                    levelUp();  // Use the unified unpause function
                     console.log("Level Up Complete")
                 }, 2000);
             }, 2000);
             aliens[0].isDefeated = false; 
         }
+
+        
+
+        // Utility function to apply effects to border overlays
+        function applyBorderEffect(overlayId, effect, duration = 2000) {
+            const overlay = document.getElementById(overlayId);
+            if (!overlay) return;
+            
+            // Reset specific styles potentially used by effects, NOT innerHTML
+            overlay.style.transition = '';
+            overlay.style.boxShadow = '';
+            overlay.style.backgroundImage = ''; // Reset background image if used by energy effect
+            overlay.style.animation = ''; // Reset animation if used
+            // Remove any leftover particle elements if that effect was used
+            const existingParticles = overlay.querySelectorAll('.border-particle');
+            existingParticles.forEach(p => p.remove());
+
+            // REMOVED: overlay.innerHTML = ''; 
+
+            switch (effect) {
+                case 'flash':
+                    // Flash effect - brighten the existing background
+                    const currentBg = window.getComputedStyle(overlay).backgroundColor;
+                    overlay.style.transition = 'background-color 0.2s ease-in-out';
+                    overlay.style.backgroundColor = 'rgba(255, 255, 255, 0.7)'; // Brighter flash
+                    setTimeout(() => {
+                        // Restore the original background from CSS
+                        overlay.style.backgroundColor = '';
+                    }, 200);
+                    break;
+                    
+                case 'glow':
+                    // Glow effect
+                    overlay.style.transition = 'box-shadow 0.5s ease-in-out';
+                    overlay.style.boxShadow = 'inset 0 0 20px rgba(255, 215, 0, 0.6)';
+                    setTimeout(() => {
+                        overlay.style.boxShadow = '';
+                    }, duration);
+                    break;
+                    
+                case 'particles':
+                    // Particle effect
+                    const particleCount = Math.floor(overlay.offsetWidth * overlay.offsetHeight / 5000);
+                    for (let i = 0; i < particleCount; i++) {
+                        const particle = document.createElement('div');
+                        particle.className = 'border-particle';
+                        particle.style.position = 'absolute';
+                        particle.style.width = '3px';
+                        particle.style.height = '3px';
+                        particle.style.backgroundColor = 'gold';
+                        particle.style.borderRadius = '50%';
+                        particle.style.left = `${Math.random() * 100}%`;
+                        particle.style.top = `${Math.random() * 100}%`;
+                        particle.style.opacity = Math.random();
+                        particle.style.animation = `fadeOut ${Math.random() * 1.5 + 0.5}s linear`;
+                        overlay.appendChild(particle);
+                    }
+                    setTimeout(() => {
+                        const particles = overlay.querySelectorAll('.border-particle');
+                        particles.forEach(p => p.remove());
+                    }, duration);
+                    break;
+                    
+                case 'warning':
+                    // Warning effect (red pulsing)
+                    // overlay.style.animation = 'pulsateRed 0.5s infinite alternate'; // REMOVE old animation
+                    // Apply a red outer glow instead
+                    overlay.style.boxShadow = '0 0 25px 10px rgba(255, 0, 0, 0.7)'; // Red glow
+                    overlay.style.transition = 'box-shadow 0.1s ease-in-out'; // Add quick transition
+                    setTimeout(() => {
+                        // overlay.style.animation = ''; // No longer needed
+                        overlay.style.boxShadow = ''; // Remove the glow
+                    }, duration);
+                    break;
+                    
+                case 'energy':
+                    // Energy charge effect
+                    // Increased opacity from 0.2 to 0.8 for visibility
+                    overlay.style.backgroundImage = 'linear-gradient(to bottom, transparent, rgba(0, 255, 255, 0.8), transparent)';
+                    overlay.style.backgroundSize = '100% 50px';
+                    overlay.style.backgroundRepeat = 'repeat-y';
+                    overlay.style.backgroundPosition = '0 -50px';
+                    overlay.style.animation = 'energyFlow 1s infinite linear';
+                    setTimeout(() => {
+                        overlay.style.backgroundImage = '';
+                        overlay.style.animation = '';
+                    }, duration);
+                    break;
+            }
+        }
+        
+        // Example usage:
+        // applyBorderEffect('leftBorderOverlay', 'flash');
+        //applyBorderEffect('rightBorderOverlay', 'glow', 3000);
+        // applyBorderEffect('topBorderOverlay', 'particles', 2000);
+        // applyBorderEffect('bottomLeftOverlay', 'warning', 1500);
+        // applyBorderEffect('bottomRightOverlay', 'energy', 5000);
+
+        // --- Mouse Boundary Test Function ---
+        function handleMouseMove(event) {
+            const mouseX = event.clientX;
+            const mouseY = event.clientY;
+
+            let location = "Outside"; // Default
+
+            // 1. Check for main game area (Above the bottom border)
+            if (mouseX > gameAreaLeft && mouseX < gameAreaRight && 
+                mouseY > gameAreaTop && mouseY < gameAreaBottom) {
+                location = "Inside Game Area";
+            } 
+            // 2. Check for bottom gap area (Below main area, within gap X)
+            else if (mouseY >= gameAreaBottom && 
+                     mouseX > gapStartX && mouseX < gapEndX) {
+                location = "Inside Bottom Gap";
+            }
+            // 3. Check Border Regions (only if not in game area or gap)
+            else if (mouseY <= gameAreaTop && mouseX >= gameAreaLeft && mouseX <= gameAreaRight) { 
+                 location = "Top Border Area";
+            }
+            else if (mouseX <= gameAreaLeft && mouseY >= gameAreaTop && mouseY <= gameAreaBottom) { 
+                 location = "Left Border Area";
+            }
+            else if (mouseX >= gameAreaRight && mouseY >= gameAreaTop && mouseY <= gameAreaBottom) { 
+                 location = "Right Border Area";
+            }
+            // Check bottom left border area
+            else if (mouseY >= gameAreaBottom && mouseX >= gameAreaLeft && mouseX <= gapStartX) { 
+                 location = "Bottom Left Border Area";
+            }
+             // Check bottom right border area
+            else if (mouseY >= gameAreaBottom && mouseX >= gapEndX && mouseX <= gameAreaRight) { 
+                 location = "Bottom Right Border Area";
+            }
+
+            // Log only if location changes
+            if (handleMouseMove.lastLocation !== location) {
+                 console.log(`Mouse: (${mouseX}, ${mouseY}) - Location: ${location}`);
+                 handleMouseMove.lastLocation = location;
+            }
+        }
+        handleMouseMove.lastLocation = ""; // Initialize for change detection
+
+        // Add the event listener
+        if (cTEST_MODE) {
+            document.addEventListener('mousemove', handleMouseMove);
+        }
+        // ----------------------------------
+
+        // Function to create a new bonus object
+        function createBonus() {
+            if (isGamePaused) return; // Don't create if paused
+
+            // Limit the number of bonuses on screen at once
+            const maxBonuses = 3;
+            if (bonuses.length >= maxBonuses) {
+                return;
+            }
+
+            // Calculate a random vertical position within the main play area
+            // Avoid spawning too close to the top or bottom borders
+            const minY = gameAreaTop + BALL_SIZE; 
+            // Restrict maxY to the top 50% of the game area
+            const maxY = gameAreaTop + (gameAreaBottom - gameAreaTop) / 2; 
+            const randomY = minY + Math.random() * (maxY - minY);
+
+            const bonus = new Bonus(randomY);
+            bonus.create();
+            bonuses.push(bonus);
+        }
+
+        // Function to move all active bonuses
+        function moveBonuses() {
+            if (isGamePaused) return;
+            // Iterate backwards to safely remove items while iterating
+            for (let i = bonuses.length - 1; i >= 0; i--) {
+                // Ensure the bonus still exists before moving (might have been hit)
+                if (bonuses[i]) {
+                    bonuses[i].move();
+                }
+                // Note: Off-screen removal is handled within Bonus.move()
+            }
+        }
+        // Function to launch the bee swarm from the icon
+        function launchBeeSwarm() {
+            console.log("launchBeeSwarm function entered!"); // <<< ADD THIS LOG
+          
+            const now = Date.now();
+            if (!beehiveReady || now < lastBeehiveTime + BEEHIVE_COOLDOWN) {
+                console.log("Beehive on cooldown.");
+                // Optionally provide visual feedback like a shake
+                return;
+            }
+
+            beehiveReady = false;
+            lastBeehiveTime = now;
+
+            // Update icon visual state
+            if (beehiveIconElement) {
+                beehiveIconElement.classList.add('cooldown');
+                // Change icon during cooldown?
+                beehiveIconElement.innerHTML = '⏳'; 
+            }
+
+            // --- Start cooldown timer to reset readiness ---
+            setTimeout(() => {
+                console.log("COOLDOWN TIMER FINISHED: Resetting beehive state."); // <<< ADD LOG
+                beehiveReady = true; // Set ready again
+                if (beehiveIconElement) {
+                    console.log("Attempting to remove cooldown class and reset icon."); // <<< ADD LOG
+                    beehiveIconElement.classList.remove('cooldown'); // Remove cooldown style
+                    // Restore icon to Bee, not satellite
+                    beehiveIconElement.innerHTML = '&#x1F41D;'; 
+                } else {
+                    console.error("Beehive icon element lost before cooldown finished?"); // <<< ADD LOG
+                }
+                console.log("Beehive ready flag set to true!");
+            }, BEEHIVE_COOLDOWN); // Timer runs for 15 seconds
+            // ---------------------------------------------
+
+            // --- Create the swarm ---
+            const swarmSize = 8; // Number of bees
+            if (!beehiveIconElement) {
+                console.error("Cannot launch bees: Beehive icon element not cached.");
+                return; // Can't proceed without the icon element
+            }
+            const iconRect = beehiveIconElement.getBoundingClientRect();
+            const startX = iconRect.left + iconRect.width / 2;
+            const startY = iconRect.top + iconRect.height / 2;
+
+            for (let i = 0; i < swarmSize; i++) {
+                // Add slight randomness to start position to avoid perfect stack
+                const beeStartX = startX + (Math.random() - 0.5) * 10;
+                const beeStartY = startY + (Math.random() - 0.5) * 10;
+                console.log(`Creating bee ${i} at: X=${beeStartX.toFixed(2)}, Y=${beeStartY.toFixed(2)}`); // <<< LOG START COORDS
+                const bee = new Bee(beeStartX, beeStartY);
+                bee.create();
+                bees.push(bee);
+            }
+
+            // TODO: Play bee launch sound
+            // BEE_LAUNCH_SOUND.currentTime = 0;
+            // BEE_LAUNCH_SOUND.play();
+
+            console.log(`Launched ${swarmSize} bees.`);
+        }
+
+        // Function to move all active bees and check collisions
+        function moveBees() {
+            // console.log(`moveBees called. Paused=${isGamePaused}, BeeCount=${bees.length}`); // Keep logs minimal now
+            if (isGamePaused) return;
+
+            // --- Target Acquisition Phase ---
+            const availableBalls = balls.filter(ball => !ball.isTargetedByBee);
+            // ONLY consider bees currently in 'seeking' state for new targets
+            const seekingBees = bees.filter(bee => bee.state === 'seeking'); // Was potentialSeekers
+
+            let ballIndex = 0; 
+            // Loop through bees that are actually seeking
+            for (let bee of seekingBees) { // Use seekingBees
+                if (availableBalls.length === 0 || ballIndex >= availableBalls.length) {
+                    // No available balls left. Seeking bees will continue idle movement.
+                    break; 
+                }
+
+                // Assign target
+                const target = availableBalls[ballIndex];
+                bee.targetBall = target;
+                bee.state = 'attacking'; // Switch state to attacking
+                target.isTargetedByBee = true;
+                console.log(`Bee ${bee.element?.id || 'N/A'} assigned to target Ball.`);
+                
+                ballIndex++; 
+            }
+            // -----------------------------
+
+            // --- Movement & Collision Phase --- 
+            // Iterate backwards for safe removal during movement/collision checks
+            for (let i = bees.length - 1; i >= 0; i--) {
+                const bee = bees[i];
+                if (!bee) continue; 
+
+                bee.move(); // Bee.move now handles state logic & collisions
+
+                // Check if bee was destroyed during its move() call (e.g., hit target or went off screen)
+                if (!bees.includes(bee)) {
+                    // Bee was destroyed and already removed itself (or should have)
+                    // Need to ensure it's removed from the main array if destroy didn't
+                     if (bees[i] === bee) { // Check if it wasn't already removed by splice in destroy
+                         console.warn(`Bee was destroyed but maybe not removed from array in destroy? Splicing now.`);
+                         bees.splice(i, 1);
+                     }
+                     continue; // Move to the next bee index
+                }
+
+                // Original Collision Check (Redundant if Bee.move handles it) 
+                /*
+                let hitBall = false;
+                for (let j = balls.length - 1; j >= 0; j--) {
+                    // ... existing collision logic ...
+                }
+                */
+            }
+            // -------------------------------
+        }
+
     </script>
 </body>
 

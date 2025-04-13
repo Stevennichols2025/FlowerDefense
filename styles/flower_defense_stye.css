@@ -28,6 +28,19 @@ canvas {
     font-size: 160px;
 }
 
+/* <<< ADDED: Style for Berserk mode >>> */
+.alien.berserk {
+    /* Example: Add a red pulsing glow */
+    box-shadow: 0 0 30px 15px rgba(255, 0, 0, 0.7);
+    animation: pulsateRed 0.5s infinite alternate, wobble 0.2s infinite; /* Combine animations */
+}
+
+/* You might already have this, if not: */
+@keyframes pulsateRed {
+    from { box-shadow: 0 0 20px 10px rgba(255, 0, 0, 0.5); }
+    to   { box-shadow: 0 0 40px 20px rgba(255, 50, 50, 0.9); }
+}
+
 @keyframes wobble {
     0% { transform: rotate(0deg); }
     25% { transform: rotate(-10deg); }
@@ -376,4 +389,197 @@ canvas {
         transform: translateX(-50%) scale(1);
         text-shadow: 0 0 10px rgba(255, 223, 0, 0.5);
     }
+}
+
+.border-overlay {
+    z-index: 1000;
+    /* Make borders visible with semi-transparent backgrounds */
+    background-color: rgba(255, 255, 255, 0.5);
+    /* Position for effects */
+    overflow: hidden;
+    /* Add a light outline to clearly see boundaries */
+    outline: 1px solid rgba(255, 255, 255, 0.7);
+    box-sizing: border-box;
+}
+
+/* Individual overlay styles for specific effects */
+#leftBorderOverlay {
+    background-color: rgba(255, 0, 0, 0.5); /* Red for left border */
+}
+
+#rightBorderOverlay {
+    background-color: rgba(0, 255, 0, 0.5); /* Green for right border */
+}
+
+#topBorderOverlay {
+    background-color: rgba(0, 0, 255, 0.5); /* Blue for top border */
+}
+
+#bottomLeftOverlay {
+    background-color: rgba(255, 255, 0, 0.5); /* Yellow for bottom left */
+}
+
+#bottomRightOverlay {
+    background-color: rgba(255, 0, 255, 0.5); /* Purple for bottom right */
+}
+
+/* Border overlay animations */
+@keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+@keyframes energyFlow {
+    from { background-position: 0 -50px; }
+    to { background-position: 0 100%; }
+}
+
+/* Border particle styles */
+.border-particle {
+    pointer-events: none;
+    z-index: 1001;
+}
+
+/* Styles for DIV-based Game Borders */
+.game-border {
+    position: absolute;
+    background-color: gold; /* Or your desired border color */
+    z-index: -1; /* Place behind game elements but above canvas bg */
+    box-sizing: border-box; /* Include border/padding in size */
+    pointer-events: none; /* Make non-interactive */
+}
+
+#border-top {
+    top: 0;
+    left: 0;
+    width: 100%;
+    /* Height will be set dynamically via JS */
+}
+
+#border-left {
+    top: 0;
+    left: 0;
+    height: 100%;
+    /* Width will be set dynamically via JS */
+}
+
+#border-right {
+    top: 0;
+    right: 0; /* Position from right edge */
+    height: 100%;
+    /* Width will be set dynamically via JS */
+    /* Note: Handling the bottom extension might require a pseudo-element 
+       or adjusting height dynamically if precise visual match is needed */
+}
+
+#border-bottom-left {
+    bottom: 0; /* Position from bottom edge */
+    left: 0;
+    /* Width and Height will be set dynamically via JS */
+}
+
+#border-bottom-right {
+    bottom: 0; /* Position from bottom edge */
+    right: 0;
+    /* Width and Height will be set dynamically via JS */
+}
+
+/* Bonus box styles */
+.bonus {
+    background-color: purple;
+    color: gold;
+    border: 2px solid gold;
+    border-radius: 5px;
+    display: flex; /* For centering text */
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    box-shadow: 0 0 10px gold; /* Add a glow */
+    z-index: 500; /* Ensure it's above borders but potentially below UI */
+    position: absolute; /* Needs to be absolute for JS positioning */
+}
+
+/* Beehive Defense Icon */
+#beehiveDefenseIcon {
+    /* Basic Button Resets */
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    outline: inherit;
+
+    /* Allow clicks despite parent having pointer-events: none */
+    pointer-events: auto; 
+
+    /* Existing Styles */
+    position: absolute;
+    /* Centering Vertically within the parent (border-bottom-right) */
+    top: 50%;
+    transform: translateY(-50%);
+    /* Positioning Horizontally */
+    left: 40px; /* Adjust this value to position relative to the start of the border segment */
+    width: 50px;  /* Button width */
+    height: 50px; /* Button height */
+    background-color: #f0ad4e; /* Orange button color */
+    border-radius: 8px;
+    box-shadow:
+        /* Top highlight */
+        inset 0 2px 0 rgba(255, 255, 255, 0.4),
+        /* Bottom shadow */
+        0 5px 0 #d9983a,
+        /* General shadow */
+        0 6px 6px rgba(0, 0, 0, 0.3);
+    color: #fff;
+    font-size: 28px; /* Adjust emoji size */
+    text-align: center;
+    line-height: 50px; /* Vertically center emoji */
+    transition: all 0.1s ease-out;
+    z-index: 1001; /* Ensure it's above other elements like canvas/particles */
+}
+
+#beehiveDefenseIcon:active {
+    /* Simulate button press */
+    top: calc(50% + 3px); /* Move down slightly */
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.4),
+        0 2px 0 #d9983a,
+        0 3px 3px rgba(0, 0, 0, 0.3);
+}
+
+#beehiveDefenseIcon.cooldown {
+    background-color: #aaa; /* Greyed out color */
+    box-shadow:
+        inset 0 2px 0 rgba(180, 180, 180, 0.4),
+        0 5px 0 #888,
+        0 6px 6px rgba(0, 0, 0, 0.3);
+    cursor: not-allowed;
+}
+
+#beehiveDefenseIcon.cooldown:active {
+    /* Prevent active state during cooldown */
+    top: 50%;
+    box-shadow:
+        inset 0 2px 0 rgba(180, 180, 180, 0.4),
+        0 5px 0 #888,
+        0 6px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* Optional: Add a hover effect */
+#beehiveDefenseIcon:not(.cooldown):hover {
+    background-color: #ec971f;
+    box-shadow:
+        inset 0 2px 0 rgba(255, 255, 255, 0.5),
+        0 5px 0 #d98a18,
+        0 6px 8px rgba(0, 0, 0, 0.35);
+}
+
+/* Individual Bee Style */
+.bee {
+    position: absolute;
+    font-size: 18px; /* Adjust size as needed */
+    pointer-events: none; /* Bees aren't clickable */
+    z-index: 2000; /* Above bonuses, below icon/UI */
+    /* Animation/movement handled by JS */
 }
