@@ -563,6 +563,10 @@
             }
 
             defeat() {
+                // --- Pause game logic immediately, but not music ---
+                pauseGame(false); 
+                // -------------------------------------------------
+
                 // Set defeated flag
                 this.isDefeated = true;
                 
@@ -594,8 +598,6 @@
                     const bonus = bonuses.pop();
                     bonus.destroy();
                 }
-
-                BACKGROUND_MUSIC.pause();  // Stop the music
 
                 // Remove explosion effect
                 explosion.remove();
@@ -1608,25 +1610,26 @@
                         i--; // Adjust index after removal
                     
                         // ... (ball creation logic remains the same) ...
-                         const armoredChance = Math.min(0.3, 0.1 + (gameLevel - 1) * 0.05); 
+                         const armoredChance = Math.min(0.3, 0.1 + (gameLevel - 1) * 0.07); 
                     
                     if (Math.random() < armoredChance) {
-                            createBall("bank", "armored"); 
-                            createBall("bank", "standard");
+                            createBall("bank", "armored");   // Bank shot
+                            createBall("direct", "armored"); // Direct shot
                     } else {
-                            createBall("bank", "standard");
-                        createBall("bank", "standard");
+                            createBall("bank", "standard");   // Bank shot
+                            createBall("direct", "standard"); // Direct shot
                     }
 
                         alien.takeDamage();  // Decrease alien health
                    
                         // Optional: applyBorderEffect('border-top', 'flash'); // Use new border div if needed
                    
-                        score += 5; 
+                    score += 5; 
+
                     SPACESHIP_HIT_SOUND.currentTime = 0; 
                     SPACESHIP_HIT_SOUND.play(); 
                     
-                    applyBorderEffect('topBorderOverlay', 'particles', 2000);
+                    // applyBorderEffect('topBorderOverlay', 'particles', 2000);
 
                     document.getElementById('score').innerHTML = score.toString();
                         alien.flash(); 
