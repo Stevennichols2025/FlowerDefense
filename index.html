@@ -1025,7 +1025,8 @@
             constructor(startYPosition) { // Renamed parameter for clarity
                 this.size = BALL_SIZE * 0.7; 
                 this.value = 5 * (Math.floor(Math.random() * 6) + 1);
-                const baseSpeed = 8 * (GAME_WIDTH / 1500); 
+                // Use min dimension for speed scaling
+                const baseSpeed = 8 * (Math.min(GAME_WIDTH, GAME_HEIGHT) / 1500); 
                 const levelMultiplier = 1 + (gameLevel - 1) * 0.08; 
                 this.speed = baseSpeed * levelMultiplier;
 
@@ -1351,11 +1352,12 @@
 
         function createAlien() {
             // Place alien relative to game area boundaries
-            const x = gameAreaLeft + (gameAreaRight - gameAreaLeft) / 3; // Approx 1/3 across game area
-            const y = gameAreaTop - ALIEN_SIZE / 2; // Position top edge slightly above game area top
-            const baseSpeed = 5 * (GAME_WIDTH / 1500);
-            const speed = baseSpeed * (1 + (gameLevel - 1) * 0.12); 
-            const alien = new Alien(ALIEN_SIZE, getRandomColor(), x, y, speed);
+            const x = gameAreaLeft + (gameAreaRight - gameAreaLeft) / 3; 
+            const y = gameAreaTop - ALIEN_SIZE / 2; 
+            // Use min dimension for speed scaling
+            const baseSpeed = 5 * (Math.min(GAME_WIDTH, GAME_HEIGHT) / 1500);
+            // const speed = baseSpeed * (1 + (gameLevel - 1) * 0.12); // Speed calculation moved to move()
+            const alien = new Alien(ALIEN_SIZE, getRandomColor(), x, y, baseSpeed);
             alien.create();
             aliens.push(alien);
         }
@@ -1400,7 +1402,8 @@
             const alienCenterY = alien.y + alien.size / 2; // <<< USE CURRENT ALIEN Y
             const x = alienCenterX;
             const y = alienCenterY; 
-            const speed = 5 * (GAME_WIDTH / 1500);
+            // Use min dimension for speed scaling
+            const speed = 5 * (Math.min(GAME_WIDTH, GAME_HEIGHT) / 1500);
 
             // Get flower positions
             const flowers = document.getElementsByClassName('static-flower');
