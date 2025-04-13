@@ -101,15 +101,53 @@ canvas {
 
 #pauseButton {
     position: absolute;
-    bottom: 25px;
-    right: 200px;
-    font-size: 50px;
+    /* Keep vertical centering in the bottom border */
+    top: 50%;
+    transform: translateY(-50%);
+    /* Place it in the bottom border on the right side */
+    left: 160px; /* Position after the rocket launcher (100px + 50px width + 10px gap) */
+    font-size: 30px; /* Reduced from 40px to fit better */
     cursor: pointer;
-    z-index: 1000;
-    background: none;
-    border: none;
-    padding: 10px;
+    z-index: 1001; /* Increased z-index to match other buttons */
+    background-color: #343a40; /* Dark gray background */
+    border-radius: 8px;
+    box-shadow:
+        inset 0 2px 0 rgba(255, 255, 255, 0.2),
+        0 5px 0 #212529,
+        0 6px 6px rgba(0, 0, 0, 0.3);
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     color: gold;
+    border: none;
+    padding: 0; /* Remove padding to ensure content fits */
+    pointer-events: auto; /* Explicitly set to ensure it's clickable */
+    /* Add a tiny delay to prevent accidental triggers */
+    transition: background-color 0.1s ease;
+    /* Prevent keyboard focus outline */
+    outline: none;
+}
+
+/* When the game is paused, disable hover effects to prevent accidental resume */
+body.game-paused #pauseButton:hover {
+    background-color: #343a40; /* Keep original color, don't highlight */
+}
+
+#pauseButton:active {
+    /* Simulate button press */
+    top: calc(50% + 3px);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.2),
+        0 2px 0 #212529,
+        0 3px 3px rgba(0, 0, 0, 0.3);
+    pointer-events: auto; /* Ensure it remains clickable when pressed */
+    z-index: 1001; /* Maintain z-index when pressed */
+}
+
+#pauseButton:hover {
+    background-color: #495057; /* Lighter shade when hovering */
 }
 
 .static-flower {
@@ -200,7 +238,7 @@ canvas {
 
 #startGameButton {
     position: absolute;
-    top: 55%;
+    top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
     font-size: 30px;
@@ -582,4 +620,250 @@ canvas {
     pointer-events: none; /* Bees aren't clickable */
     z-index: 2000; /* Above bonuses, below icon/UI */
     /* Animation/movement handled by JS */
+}
+
+/* --- Rocket Launcher Icon Styles --- */
+/* REMOVE the combined rule */
+/* #rocketLauncherIcon,
+.rocket {
+    ... (removed) ...
+} */
+
+/* Restore original layout styles and add flex for centering */
+#rocketLauncherIcon {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    left: 100px; 
+    width: 50px;  
+    height: 50px; 
+    background-color: #6c757d; 
+    border: none;
+    border-radius: 8px;
+    box-shadow:
+        inset 0 2px 0 rgba(255, 255, 255, 0.2),
+        0 5px 0 #495057,
+        0 6px 6px rgba(0, 0, 0, 0.3);
+    color: #fff;
+    font-size: 24px; 
+    cursor: default; 
+    z-index: 1001; 
+    
+    /* Added for centering the inner span */
+    display: flex; 
+    align-items: center;
+    justify-content: center;
+}
+
+/* Rotate ONLY the emoji span inside the button */
+#rocketLauncherIcon .rocket-emoji {
+  display: inline-block; /* Needed for transform */
+  transform: rotate(-45deg); 
+  line-height: 1; /* Adjust line-height for rotated element */
+}
+
+#rocketCount {
+    position: absolute;
+    bottom: -5px;
+    right: -5px;
+    background-color: rgba(217, 83, 79, 0.9); /* Red background */
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    line-height: 22px;
+    text-align: center;
+    font-family: Arial, sans-serif; /* Use a standard font */
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+}
+
+/* --- Rocket Projectile Style --- */
+.rocket {
+    position: absolute;
+    font-size: 30px; /* Base size for container */
+    /* ONLY handle horizontal centering, NO rotation here */
+    transform: translateX(-50%); 
+    z-index: 1500;
+    display: inline-block; 
+    /* Remove width/height if they interfere, let content size it */
+    /* line-height: 1; Ensures container doesn't add extra space */
+}
+
+/* NEW: Style for the inner span holding the emoji */
+.rocket .rocket-visual { 
+    display: inline-block; /* Important for transform */
+    transform: rotate(-45deg); /* Apply rotation ONLY to the visual part */
+    line-height: 1; /* Prevent span from affecting container height */
+}
+
+/* --- Flame Effect for Rocket --- */
+/* This should now work correctly relative to the unrotated .rocket div */
+.rocket::after {
+    content: '';
+    position: absolute;
+    top: 85%; 
+    left: 50%;
+    /* transform: translateX(-50%); /* Centering */
+    /* Let's try slightly different positioning now that parent isn't rotated */
+    transform: translateX(-50%) translateY(2px); /* Nudge down slightly */
+    width: 12px; 
+    height: 25px; 
+    background: linear-gradient(to top, red, orange, yellow); 
+    border-radius: 0 0 50% 50%; 
+    z-index: -1; 
+    animation: rocketFlame 0.1s infinite alternate;
+}
+
+/* --- Rocket Flame Animation --- */
+@keyframes rocketFlame {
+    0% {
+        /* Adjust transform origin slightly if needed? */
+        transform: translateX(-50%) translateY(2px) scaleY(1) scaleX(1); 
+        opacity: 1;
+    }
+    50% {
+         transform: translateX(-50%) translateY(2px) scaleY(0.8) scaleX(1.1);
+         opacity: 0.8;
+    }
+    100% {
+        transform: translateX(-50%) translateY(2px) scaleY(1.1) scaleX(0.9);
+        opacity: 1;
+    }
+}
+
+/* --- Rocket Explosion Style (Placeholder) --- */
+.rocket-explosion {
+    position: absolute;
+    width: 100px; /* Example size - will be set by JS */
+    height: 100px;
+    background-color: rgba(255, 100, 0, 0.7);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    animation: rocketExplosionAnim 0.4s ease-out forwards;
+    z-index: 1600; /* Above rockets */
+    pointer-events: none;
+}
+
+@keyframes rocketExplosionAnim {
+    0% {
+        transform: translate(-50%, -50%) scale(0.1);
+        opacity: 1;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 0;
+    }
+}
+
+/* --- Rocket Explosion Animation Keyframes --- */
+@keyframes rocketExplosionCore {
+    0% {
+        width: 0;
+        height: 0;
+        opacity: 1;
+    }
+    50% {
+        width: 30px;
+        height: 30px;
+        opacity: 1;
+    }
+    100% {
+        width: 40px;
+        height: 40px;
+        opacity: 0;
+    }
+}
+
+@keyframes rocketShockwave {
+    0% {
+        width: 0;
+        height: 0;
+        border-width: 5px; /* Thinner initial border */
+        opacity: 0.8;
+    }
+    100% {
+        width: 80%; /* Don't expand to full container width */
+        height: 80%; /* Don't expand to full container height */
+        border-width: 1px;
+        opacity: 0;
+    }
+}
+
+@keyframes rocketParticle1 {
+    0% {
+        transform: translate(-50%, -50%);
+        opacity: 1;
+    }
+    100% {
+        transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty)));
+        opacity: 0;
+    }
+}
+
+@keyframes rocketParticle2 {
+    0% {
+        transform: translate(-50%, -50%);
+        opacity: 1;
+    }
+    70% {
+        opacity: 0.8;
+    }
+    100% {
+        transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty)));
+        opacity: 0;
+    }
+}
+
+@keyframes rocketParticle3 {
+    0% {
+        transform: translate(-50%, -50%);
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.9;
+    }
+    100% {
+        transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty)));
+        opacity: 0;
+    }
+}
+
+/* Controls Legend Styling */
+#controlsLegend {
+    position: absolute;
+    top: 60%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 350px;
+    background-color: rgba(0, 0, 0, 0.7);
+    border: 2px solid gold;
+    border-radius: 10px;
+    padding: 15px 20px;
+    text-align: left;
+    font-family: 'Press Start 2P', sans-serif;
+    font-size: 14px;
+    color: white;
+    z-index: 2001;
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+}
+
+.control-item {
+    margin: 10px 0;
+    display: flex;
+    align-items: center;
+}
+
+.control-item:first-child {
+    margin-top: 0;
+}
+
+.control-item:last-child {
+    margin-bottom: 0;
+}
+
+.control-item span {
+    margin-left: 15px;
+    color: gold;
 }

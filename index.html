@@ -18,14 +18,28 @@
     <div id="border-right" class="game-border"></div>
     <div id="border-bottom-left" class="game-border"></div>
     <div id="border-bottom-right" class="game-border">
-        <!-- Changed div to button -->
-        <button id="beehiveDefenseIcon" type="button"></button> 
+        <!-- Beehive Button -->
+        <button id="beehiveDefenseIcon" type="button">🐝</button> 
+        <!-- Rocket Launcher Indicator -->
+        <div id="rocketLauncherIcon">
+            <span class="rocket-emoji">🚀</span>
+            <span id="rocketCount">5</span> <!-- Counter -->
+        </div>
+        <!-- Pause Button -->
+        <button id="pauseButton" tabindex="-1" onkeydown="return event.key !== ' ' && event.code !== 'Space';">⏸️</button>
     </div>
     <!-- End DIV Borders -->
 
     <div id="startGameContainer">
         <div id="startGameText">FLOWER DEFENSE</div>
         <button id="startGameButton">Start Game</button>
+        <div id="controlsLegend">
+            <div class="control-item">← → <span>Move Sunflower</span></div>
+            <div class="control-item">Space <span>Fire Laser</span></div>
+            <div class="control-item">1 <span>Activate Bee Defense</span></div>
+            <div class="control-item">Ctrl <span>Fire Rocket</span></div>
+            <div class="control-item">P <span>Pause Game</span></div>
+        </div>
         <div id="decorativeFlowerRow"></div>
     </div>
 
@@ -36,7 +50,7 @@
         <div id="alienHealthBar"></div>
     </div>
     <div id="levelMessageContainer"></div>
-    <button id="pauseButton">⏸️</button>
+   
 
     
     <!-- Add game over container -->
@@ -72,6 +86,10 @@
         let lastBeehiveTime = 0; // Timestamp of last use
         const BEEHIVE_COOLDOWN = 15000; // 15 seconds cooldown
         let beehiveIconElement = null; // Reference to the icon DOM element
+
+        let rocketsRemaining = 0; // Initialize globally first
+        let rocketsPerLevel = 5; 
+
 
         // This function will be called again if the window is resized 
         function setCharacterSizes() {
@@ -256,7 +274,8 @@
                 moveLasers: setInterval(moveLasers, 15),
                 createBonus: setInterval(createBonus, 5000), // Create a bonus every 5 seconds
                 moveBonuses: setInterval(moveBonuses, 20),   // Move bonuses at same rate as balls
-                moveBees: setInterval(moveBees, 25) // Move bees 
+                moveBees: setInterval(moveBees, 25), // Move bees 
+                moveRockets: setInterval(moveRockets, 20) // <<< ADDED: Move rockets interval
             };
             console.log("gameIntervals ReCreated")
             console.log(balls.length)
@@ -324,6 +343,14 @@
                 beehiveIconElement.classList.remove('cooldown'); // Remove cooldown style
                 beehiveIconElement.innerHTML = '&#x1F41D;'; // Ensure bee icon
             }
+
+            // Clear active rockets & reset count
+            while(activeRockets.length > 0) {
+                 const rocket = activeRockets.pop();
+                 rocket.destroy();
+            }
+            rocketsRemaining = rocketsPerLevel;
+            if(rocketCountElement) rocketCountElement.textContent = rocketsRemaining.toString();
 
             // Reset and recreate alien
             const oldAlien = aliens.pop();
@@ -1351,6 +1378,7 @@
         const aliens = [];
         const bonuses = []; // Array to hold active bonus boxes
         const bees = []; 
+        const activeRockets = []; // <<< ADDED: Array for active rockets
 
         function createAlien() {
             // Place alien relative to game area boundaries
@@ -1480,15 +1508,22 @@
         const ACCELERATION = 0.5;
         const DECELERATION = 0.8;
 
-        document.addEventListener('keydown', function (event) {
+        // Define the named function
+        function handleKeyDown(event) {
+            console.log('Key Down:', event.key); // <<< ADD LOG TO SEE KEY
             if (event.key === 'ArrowLeft') {
                 isMovingLeft = true;
             } else if (event.key === 'ArrowRight') {
                 isMovingRight = true;
             } else if (event.key === '1') { // <<< ADDED: Check for '1' key
                 launchBeeSwarm(); // Launch bees
+            } else if (event.key === 'Control') { // <<< ADDED: Check for 'Control' key
+                 event.preventDefault(); // Prevent browser default Ctrl actions
+                 fireRocket(); // Launch rocket
             }
-        });
+        }
+
+        document.addEventListener('keydown', handleKeyDown);
 
         document.addEventListener('keyup', function (event) {
             if (event.key === 'ArrowLeft') {
@@ -1804,6 +1839,7 @@
         function pauseGame(playerPaused = false) {
             isGamePaused = true;
             pauseButton.textContent = '▶️'; // Play symbol
+            document.body.classList.add('game-paused'); // Add class to body
             
             // Clear all intervals
             if (gameIntervals) {
@@ -1820,6 +1856,7 @@
                 gameIntervals.createBonus = null; 
                 gameIntervals.moveBonuses = null;
                 gameIntervals.moveBees = null; // Clear bee interval
+                gameIntervals.moveRockets = null; // <<< ADDED: Clear rocket interval
             }
             
             if (playerPaused) {
@@ -1838,6 +1875,7 @@
             
             isGamePaused = false;
             pauseButton.textContent =  '⏸️'; // Pause symbol
+            document.body.classList.remove('game-paused'); // Remove class from body
             
             // Restart all game intervals with adjusted speeds
             gameIntervals = {
@@ -1848,7 +1886,8 @@
                 moveLasers: setInterval(moveLasers, 15), 
                 createBonus: setInterval(createBonus, 5000), // Create a bonus every 5 seconds
                 moveBonuses: setInterval(moveBonuses, 20),   // Move bonuses at same rate as balls
-                moveBees: setInterval(moveBees, 25) // Move bees 
+                moveBees: setInterval(moveBees, 25), // Restart bee interval
+                moveRockets: setInterval(moveRockets, 20) // <<< ADDED: Restart rocket interval
             };
             
             BACKGROUND_MUSIC.play();  // Resume the music
@@ -1914,17 +1953,41 @@
                 moveLasers: setInterval(moveLasers, 15),
                 createBonus: setInterval(createBonus, 5000), // Create a bonus every 5 seconds
                 moveBonuses: setInterval(moveBonuses, 20),   // Move bonuses at same rate as balls
-                moveBees: setInterval(moveBees, 25) // Move bees 
+                moveBees: setInterval(moveBees, 25), // Restart bee interval
+                moveRockets: setInterval(moveRockets, 20) // <<< ADDED: Restart rocket interval
             };
             
             BACKGROUND_MUSIC.play();  // Resume the music
+            rocketsRemaining = rocketsPerLevel;
         }
 
-        pauseButton.addEventListener('click', function() {
-            if (isGamePaused) {
-                unpauseGame();
-            } else {
-                pauseGame(true);
+        pauseButton.addEventListener('click', function(event) {
+            // Only toggle pause state if it's an actual mouse click
+            if (event.isTrusted && event.type === 'click') {
+                if (isGamePaused) {
+                    unpauseGame();
+                } else {
+                    pauseGame(true);
+                }
+            }
+        });
+
+        // Prevent spacebar from activating the pause button when mouse is over it
+        pauseButton.addEventListener('keydown', function(event) {
+            if (event.key === ' ' || event.code === 'Space') {
+                event.preventDefault();
+                return false;
+            }
+        });
+
+        // Add a keyboard shortcut for pause that won't interfere with the button
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'p' || event.key === 'P') {
+                if (isGamePaused) {
+                    unpauseGame();
+                } else {
+                    pauseGame(true);
+                }
             }
         });
 
@@ -2023,6 +2086,14 @@
                 beehiveIconElement.classList.remove('cooldown'); // Remove cooldown style
                 beehiveIconElement.innerHTML = '&#x1F41D;'; // Ensure bee icon
             }
+
+            // Clear active rockets
+            while(activeRockets.length > 0) {
+                 const rocket = activeRockets.pop();
+                 rocket.destroy();
+            }
+            rocketsRemaining = rocketsPerLevel;
+            if(rocketCountElement) rocketCountElement.textContent = rocketsRemaining.toString();
 
             BACKGROUND_MUSIC.pause();  // Stop the music
 
@@ -2465,6 +2536,261 @@
             // -------------------------------
         }
 
+        // ****** Rocket Class *********
+        class Rocket {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.speed = 11;  // Reduced from 18 (40% slower)
+                this.size = 30; // Matches CSS font-size
+                this.element = null;
+            }
+
+            create() {
+                const rocketElement = document.createElement('div');
+                rocketElement.className = 'rocket';
+                rocketElement.innerHTML = '<span class="rocket-visual">🚀</span>'; 
+                // Initial position set using translate in CSS, adjust positioning logic here
+                rocketElement.style.left = `${this.x}px`; 
+                rocketElement.style.top = `${this.y}px`;
+                document.body.appendChild(rocketElement);
+                this.element = rocketElement;
+                console.log(`Rocket created at: ${this.x.toFixed(2)}, ${this.y.toFixed(2)}`);
+            }
+
+            move() {
+                this.y -= this.speed;  // Move up
+                if (this.element) {
+                    this.element.style.top = `${this.y}px`;
+                }
+            }
+
+            destroy() {
+                if (this.element && this.element.parentNode) {
+                    this.element.parentNode.removeChild(this.element);
+                    this.element = null;
+                }
+                console.log("Rocket destroyed.");
+            }
+        }
+        // ******** end of Rocket class *********
+
+        // <<< ADDED: Function to fire a rocket >>>
+        function fireRocket() {
+            if (isGamePaused || rocketsRemaining <= 0) {
+                console.log(`Cannot fire rocket. Paused=${isGamePaused}, Remaining=${rocketsRemaining}`);
+                // Optional: Add a sound effect for empty/fail?
+                return;
+            }
+
+            rocketsRemaining --;
+            if (rocketCountElement) {
+                rocketCountElement.textContent = rocketsRemaining.toString();
+            } else {
+                 console.warn("rocketCountElement not cached, cannot update display.")
+            }
+            console.log(`Firing rocket! Remaining: ${rocketsRemaining}`);
+
+            // Position rocket start at the player's current visual center
+            const playerRect = player.getBoundingClientRect(); 
+            const rocketStartX = playerRect.left + playerRect.width / 2; // Horizontal center
+            const rocketStartY = playerRect.top; // Start at the visual top of the player 
+            
+            const rocket = new Rocket(rocketStartX, rocketStartY);
+            rocket.create();
+            activeRockets.push(rocket);
+            
+            // TODO: Add rocket fire sound
+            // ROCKET_FIRE_SOUND.currentTime = 0; 
+            // ROCKET_FIRE_SOUND.play();
+        }
+
+        // <<< ADDED: Function to move rockets and check boundaries >>>
+        function moveRockets() {
+            if (isGamePaused) return;
+
+            for (let i = activeRockets.length - 1; i >= 0; i--) {
+                const rocket = activeRockets[i];
+                rocket.move();
+
+                // Define rocket tip coordinates for collision detection
+                const rocketTipX = rocket.x;
+                const rocketTipY = rocket.y;
+
+                // Check for rocket / ball collisions
+                for (let j = 0; j < balls.length; j++) {
+                    const ball = balls[j];
+                    // Pass rocketTipX, rocketTipY which represent the rocket's center point
+                    // Using same hitbox width as laser for now
+                    if (ball.isColliding(rocketTipX, rocketTipY, LASER_HITBOX_WIDTH)) { 
+                        // Store the hit ball's position for the explosion
+                        const explosionX = ball.x;
+                        const explosionY = ball.y;
+                        
+                        // Destroy the primary ball that was hit
+                        ball.createExplosion();
+                        ball.destroy();
+                        balls.splice(j, 1);
+                        
+                        // Destroy the rocket
+                        rocket.destroy();
+                        activeRockets.splice(i, 1);
+                        
+                        // Calculate the explosion radius (5 ball widths)
+                        const explosionRadius = BALL_SIZE * 4;
+                        
+                        // Create the large visual explosion effect
+                        createLargeExplosion(explosionX, explosionY, explosionRadius);
+                        
+                        // Area effect: destroy all balls within explosion radius
+                        for (let k = balls.length - 1; k >= 0; k--) {
+                            const nearbyBall = balls[k];
+                            
+                            // Calculate distance between explosion center and this ball
+                            const dx = nearbyBall.x - explosionX;
+                            const dy = nearbyBall.y - explosionY;
+                            const distance = Math.sqrt(dx * dx + dy * dy);
+                            
+                            // If ball is within explosion radius, destroy it regardless of armor
+                            if (distance <= explosionRadius) {
+                                nearbyBall.createExplosion();
+                                nearbyBall.destroy();
+                                balls.splice(k, 1);
+                                
+                                // Award points based on ball type
+                                if (nearbyBall.type === 'armored') {
+                                    score += 3;
+                                } else {
+                                    score += 1;
+                                }
+                            }
+                        }
+                        
+                        // Play a larger explosion sound
+                        ARMORED_DEFEAT_SOUND.currentTime = 0;
+                        ARMORED_DEFEAT_SOUND.play();
+                        
+                        // Update score display
+                        document.getElementById('score').innerHTML = score.toString();
+                        break; // Rocket exploded, move to next rocket
+                    }
+                }
+
+                // --- Basic Off-Screen Check (Top) --- 
+                // Only check if rocket hasn't been destroyed in collision
+                if (i >= 0 && i < activeRockets.length) {
+                    const rocketTopEdge = rocket.y - rocket.size / 2; // Approximate top
+                    if (rocketTopEdge < gameAreaTop) {
+                        rocket.destroy();
+                        activeRockets.splice(i, 1);
+                        console.log("Rocket removed (off-screen).");
+                    }
+                }
+                // --------------------------------------
+            }
+        }
+
+        rocketCountElement = document.getElementById('rocketCount'); // Cache counter span
+        
+        // Initialize rocket count
+        rocketsRemaining = rocketsPerLevel;
+        if (rocketCountElement) {
+            rocketCountElement.textContent = rocketsRemaining.toString();
+        }
+
+        // Function to create a large rocket explosion
+        function createLargeExplosion(x, y, radius) {
+            // Create container for the explosion
+            const explosionContainer = document.createElement('div');
+            explosionContainer.className = 'rocket-explosion';
+            explosionContainer.style.position = 'absolute';
+            explosionContainer.style.left = x + 'px';
+            explosionContainer.style.top = y + 'px';
+            // Drastically reduce explosion container to just 1.1 times radius
+            explosionContainer.style.width = radius * 1.1 + 'px';
+            explosionContainer.style.height = radius * 1.1 + 'px';
+            explosionContainer.style.transform = 'translate(-50%, -50%)';
+            explosionContainer.style.zIndex = '1500';
+            
+            // Create central blast
+            const centralBlast = document.createElement('div');
+            centralBlast.className = 'rocket-explosion-core';
+            centralBlast.style.position = 'absolute';
+            centralBlast.style.left = '50%';
+            centralBlast.style.top = '50%';
+            centralBlast.style.width = '0';
+            centralBlast.style.height = '0';
+            centralBlast.style.transform = 'translate(-50%, -50%)';
+            centralBlast.style.borderRadius = '50%';
+            centralBlast.style.backgroundColor = '#fff'; // White core
+            centralBlast.style.boxShadow = '0 0 15px 8px rgba(255, 200, 0, 0.8), 0 0 30px 15px rgba(255, 100, 0, 0.6)'; // Significantly reduced shadow size
+            centralBlast.style.animation = 'rocketExplosionCore 0.6s forwards';
+            explosionContainer.appendChild(centralBlast);
+            
+            // Create shockwave ring
+            const shockwave = document.createElement('div');
+            shockwave.className = 'rocket-explosion-shockwave';
+            shockwave.style.position = 'absolute';
+            shockwave.style.left = '50%';
+            shockwave.style.top = '50%';
+            shockwave.style.transform = 'translate(-50%, -50%)';
+            shockwave.style.width = '0';
+            shockwave.style.height = '0';
+            shockwave.style.borderRadius = '50%';
+            shockwave.style.border = '1px solid rgba(255, 200, 0, 0.6)'; // Thinner, more transparent border
+            shockwave.style.animation = 'rocketShockwave 0.5s forwards'; // Shorter animation
+            explosionContainer.appendChild(shockwave);
+            
+            // Create particles
+            const numParticles = 60; // Fewer particles for a smaller explosion
+            for (let i = 0; i < numParticles; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'rocket-explosion-particle';
+                
+                // Calculate random direction for each particle
+                const angle = (i / numParticles) * 360 + Math.random() * 30;
+                const distance = radius * (0.2 + Math.random() * 0.4); // Significantly reduce distance to 20-60% of radius
+                const tx = Math.cos(angle * Math.PI / 180) * distance;
+                const ty = Math.sin(angle * Math.PI / 180) * distance;
+                
+                // Random size and color variations for particles
+                const size = 1 + Math.random() * 4; // Smaller particles
+                const colors = ['#ff0', '#f80', '#f00'];
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                
+                particle.style.width = size + 'px';
+                particle.style.height = size + 'px';
+                particle.style.backgroundColor = color;
+                particle.style.position = 'absolute';
+                particle.style.left = '50%';
+                particle.style.top = '50%';
+                particle.style.transform = 'translate(-50%, -50%)';
+                particle.style.borderRadius = '50%';
+                particle.style.opacity = Math.random() * 0.3 + 0.7;
+                particle.style.boxShadow = `0 0 ${size * 2}px ${size}px ${color}`;
+                
+                // Set animation properties
+                particle.style.animation = `rocketParticle${i % 3 + 1} ${0.4 + Math.random() * 0.4}s forwards`;
+                particle.style.animationTimingFunction = 'ease-out';
+                
+                // Set final position as CSS custom properties
+                particle.style.setProperty('--tx', `${tx}px`);
+                particle.style.setProperty('--ty', `${ty}px`);
+                
+                explosionContainer.appendChild(particle);
+            }
+            
+            document.body.appendChild(explosionContainer);
+            
+            // Remove explosion container after animation completes
+            setTimeout(() => {
+                if (explosionContainer.parentNode) {
+                    explosionContainer.parentNode.removeChild(explosionContainer);
+                }
+            }, 1000);
+        }
+
+        // <<< ADDED: Function to move rockets and check boundaries >>>
     </script>
 </body>
 
