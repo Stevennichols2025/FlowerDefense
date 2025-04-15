@@ -16,7 +16,7 @@ class Rocket {
     rocketElement.style.top = `${this.y}px`
     document.body.appendChild(rocketElement)
     this.element = rocketElement
-    console.log(`Rocket created at: ${this.x.toFixed(2)}, ${this.y.toFixed(2)}`)
+    consoleLog(`Rocket created at: ${this.x.toFixed(2)}, ${this.y.toFixed(2)}`)
   }
 
   move() {
@@ -31,6 +31,6 @@ class Rocket {
       this.element.parentNode.removeChild(this.element)
       this.element = null
     }
-    console.log('Rocket destroyed.')
+    consoleLog('Rocket destroyed.')
   }
 }

@@ -37,7 +37,7 @@ class Saucer {
     // Calculate berserk target Y position (needs gameArea boundaries)
     this.berserkTargetY =
       gameAreaTop + (gameAreaBottom - gameAreaTop) / 2 - this.size / 2
-    console.log(
+    consoleLog(
       `Saucer created. InitialY=${this.initialY.toFixed(2)}, BerserkTargetY=${this.berserkTargetY.toFixed(2)}`,
     )
 
@@ -48,6 +48,7 @@ class Saucer {
 
   takeDamage(damageAmount) {
     this.health = Math.max(0, this.health - damageAmount)
+    consoleLog("saucer health:" + this.health)
 
     // Calculate health as a percentage of initial health
     const healthPercentage = (this.health / this.initialHealth) * 100
@@ -58,7 +59,7 @@ class Saucer {
 
     // --- Berserk Trigger ---
     if (this.health <= this.initialHealth * 0.3 && !this.isBerserk) {
-      console.log('Saucer entering BERSERK mode!')
+      consoleLog('Saucer entering BERSERK mode!')
       this.isBerserk = true
       // Add visual indicator
       if (this.element) {
@@ -223,8 +224,8 @@ class Saucer {
     const dx = saucerCenterX - targetCenterX
     const dy = saucerCenterY - targetCenterY
     const distance = Math.sqrt(dx * dx + dy * dy)
-    //console.log("collide distance=" + this.size / 2 + size / 2)
-    //console.log("actual distance=" + distance)
+    //consoleLog("collide distance=" + this.size / 2 + size / 2)
+    //consoleLog("actual distance=" + distance)
     return distance < this.size / 2 + size / 2
   }
 }

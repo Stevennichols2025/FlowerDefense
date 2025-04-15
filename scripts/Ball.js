@@ -141,7 +141,7 @@ class Ball {
           }
           this.speed *= 1.2
           this.lastPlayerHitTime = now
-          console.log(
+          consoleLog(
             `Player hit! Score: ${score}, New Ball Speed: ${this.speed.toFixed(2)}`,
           )
           const warningDuration = 400

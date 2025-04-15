@@ -28,7 +28,7 @@ class Bee {
       gameAreaTop +
       padding +
       Math.random() * ((gameAreaBottom - gameAreaTop) * 0.66 - padding)
-    console.log(
+    consoleLog(
       `Bee ${this.element?.id || 'New'} set new idle target: (${this.idleTargetX.toFixed(2)}, ${this.idleTargetY.toFixed(2)})`,
     )
   }
@@ -41,7 +41,7 @@ class Bee {
     beeElement.style.top = `${this.y - this.size / 2}px` // Center vertically
     beeElement.style.fontSize = `${this.size}px` // Ensure size matches
     // Other styles like position: absolute are handled by CSS
-    console.log(
+    consoleLog(
       `Bee element created with style: left=${beeElement.style.left}, top=${beeElement.style.top}`,
     ) // <<< LOG ELEMENT STYLE
     document.body.appendChild(beeElement)
@@ -62,7 +62,7 @@ class Bee {
         !balls.includes(this.targetBall)
       ) {
         // ... (Handle lost target -> seeking) ...
-        console.log(
+        consoleLog(
           `Bee ${this.element?.id || 'N/A'} lost target, switching to seeking.`,
         )
         if (this.targetBall) this.targetBall.isTargetedByBee = false // Clear flag if target existed
@@ -84,7 +84,7 @@ class Bee {
 
         if (distance < 10) {
           // Increased hit distance slightly
-          console.log(
+          consoleLog(
             `Bee ${this.element?.id || 'N/A'} hit target Ball! Switching to Exiting.`,
           )
 
@@ -126,7 +126,7 @@ class Bee {
       // Check if off-screen top during exit
       const topBoundary = gameAreaTop
       if (this.y + this.size < topBoundary) {
-        console.log(
+        consoleLog(
           `Bee ${this.element?.id || 'N/A'} destroyed (Exited screen top)`,
         )
         this.destroy()
@@ -134,7 +134,7 @@ class Bee {
         if (index > -1) {
           bees.splice(index, 1)
         }
-        console.log('bees count=' + bees.length)
+        consoleLog('bees count=' + bees.length)
         if (bees.length === 0) {
           BEE_LAUNCH_SOUND.pause() // Pause the sound
           BEE_LAUNCH_SOUND.currentTime = 0 // Reset to beginning
@@ -177,7 +177,7 @@ class Bee {
     /*
         const topBoundary = gameAreaTop; 
         if (this.state !== 'attacking' && this.y + this.size < topBoundary) { 
-            console.log(`Bee ${this.element?.id || 'N/A'} destroyed (Off-screen top - Failsafe)`); 
+            consoleLog(`Bee ${this.element?.id || 'N/A'} destroyed (Off-screen top - Failsafe)`); 
             this.destroy(); 
         }
         */
@@ -195,7 +195,7 @@ class Bee {
   destroy() {
     // Clear target flag on the ball if this bee had one
     if (this.targetBall) {
-      console.log(
+      consoleLog(
         `Bee ${this.element?.id || 'N/A'} destroyed, clearing target flag on ball.`,
       )
       this.targetBall.isTargetedByBee = false

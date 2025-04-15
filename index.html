@@ -94,7 +94,7 @@
       let createAlienInterval = 2000 // Starts at 2 seconds and is reduced slightly after each level up.
       const DIRECT_HIT_PERCENTAGE = .5 //Percentage of aliens launched that will target for a direct hit , vs bank shots 
       const SAUCER_LEVEL_SCALING = .15 // increase speed of saucer by this amount every level 
-      const SAUCER_HEALTH_INCREASE = 20 //Health increase per level. 
+      const SAUCER_HEALTH_INCREASE = 10 //Health increase per level. 
       
   
 
@@ -192,7 +192,7 @@
           gapStartX = blRect.right // Right edge of bottom-left defines gap start
           gapEndX = brRect.left // Left edge of bottom-right defines gap end
 
-          console.log('Game Area Boundaries Updated:', {
+          consoleLog('Game Area Boundaries Updated:', {
             top: gameAreaTop,
             left: gameAreaLeft,
             right: gameAreaRight,
@@ -226,7 +226,7 @@
             clearInterval(gameIntervals[interval])
           }
         }
-        console.log('intervals Cleared')
+        consoleLog('intervals Cleared')
 
         // Responsive sizing constants (initial call)
         // setCharacterSizes();
@@ -261,7 +261,7 @@
         // --- Wait for fonts to load before final sizing and drawing ---
         try {
           await document.fonts.ready
-          console.log('Fonts loaded, proceeding with final layout.')
+          consoleLog('Fonts loaded, proceeding with final layout.')
         } catch (error) {
           console.error('Font loading error or timeout:', error)
         }
@@ -305,8 +305,8 @@
           moveBees: setInterval(moveBees, 25), // Move bees
           moveRockets: setInterval(moveRockets, 20), // <<< ADDED: Move rockets interval
         }
-        console.log('gameIntervals ReCreated')
-        console.log(balls.length)
+        consoleLog('gameIntervals ReCreated')
+        consoleLog(balls.length)
 
         levelMessageContainer = document.getElementById('levelMessageContainer')
         beehiveIconElement = document.getElementById('beehiveDefenseIcon') // Cache icon
@@ -314,13 +314,13 @@
 
         // Initialize the beehive icon directly here
         if (beehiveIconElement) {
-          console.log(
+          consoleLog(
             'Found beehiveIconElement during initialization.',
             beehiveIconElement,
           )
           beehiveIconElement.innerHTML = '&#x1F41D;' // Bee emoji
           // REMOVED: beehiveIconElement.addEventListener('click', launchBeeSwarm);
-          // console.log("Listener ADDED to beehiveIconElement."); // Log no longer accurate
+          // consoleLog("Listener ADDED to beehiveIconElement."); // Log no longer accurate
         } else {
           console.error(
             'FAILED to find beehiveIconElement during initialization.',
@@ -404,7 +404,7 @@
         }
         addFlowers()
         // Initialize fresh game
-        console.log('Game Restarted with score reset to: ' + score)
+        consoleLog('Game Restarted with score reset to: ' + score)
         initializeGame()
       }
 
@@ -599,7 +599,7 @@
       function createBall(shotType = 'random', ballType = 'standard') {
         // Level 1 - 10 ball max, Level 2 : 14 ball max, level 3 :
         if (balls.length > cMAXBALLS + (gameLevel - 1) * (2 * gameLevel)) {
-          console.log('Ball Count=' + balls.length)
+          consoleLog('Ball Count=' + balls.length)
           return
         }
 
@@ -695,7 +695,7 @@
 
       // Define the named function
       function handleKeyDown(event) {
-        console.log('Key Down:', event.key) // <<< ADD LOG TO SEE KEY
+        consoleLog('Key Down:', event.key) // <<< ADD LOG TO SEE KEY
         if (event.key === 'ArrowLeft') {
           isMovingLeft = true
         } else if (event.key === 'ArrowRight') {
@@ -1129,7 +1129,7 @@
           saucers[0].isBerserk = false
 
           // Reset health
-          saucers[0].initialHealth = cTEST_MODE ? 20 : (140 + (SAUCER_HEALTH_INCREASE * gameLevel))
+          saucers[0].initialHealth = cTEST_MODE ? 20 : (120 + (SAUCER_HEALTH_INCREASE * gameLevel))
           saucers[0].health = saucers[0].initialHealth
           
           document.getElementById('saucerHealthBar').style.width = '100%'
@@ -1442,7 +1442,7 @@
           setTimeout(() => {
             container.innerHTML = ''
             levelUp()
-            console.log('Level Up Complete')
+            consoleLog('Level Up Complete')
           }, 2000)
         }, 2000)
         saucers[0].isDefeated = false
@@ -1602,7 +1602,7 @@
 
         // Log only if location changes
         if (handleMouseMove.lastLocation !== location) {
-          console.log(`Mouse: (${mouseX}, ${mouseY}) - Location: ${location}`)
+          consoleLog(`Mouse: (${mouseX}, ${mouseY}) - Location: ${location}`)
           handleMouseMove.lastLocation = location
         }
       }
@@ -1650,11 +1650,11 @@
       }
       // Function to launch the bee swarm from the icon
       function launchBeeSwarm() {
-        console.log('launchBeeSwarm function entered!') // <<< ADD THIS LOG
+        consoleLog('launchBeeSwarm function entered!') // <<< ADD THIS LOG
 
         const now = Date.now()
         if (!beehiveReady || now < lastBeehiveTime + BEEHIVE_COOLDOWN) {
-          console.log('Beehive on cooldown.')
+          consoleLog('Beehive on cooldown.')
           // Optionally provide visual feedback like a shake
           return
         }
@@ -1671,17 +1671,17 @@
 
         // --- Start cooldown timer to reset readiness ---
         setTimeout(() => {
-          console.log('COOLDOWN TIMER FINISHED: Resetting beehive state.') // <<< ADD LOG
+          consoleLog('COOLDOWN TIMER FINISHED: Resetting beehive state.') // <<< ADD LOG
           beehiveReady = true // Set ready again
           if (beehiveIconElement) {
-            console.log('Attempting to remove cooldown class and reset icon.') // <<< ADD LOG
+            consoleLog('Attempting to remove cooldown class and reset icon.') // <<< ADD LOG
             beehiveIconElement.classList.remove('cooldown') // Remove cooldown style
             // Restore icon to Bee, not satellite
             beehiveIconElement.innerHTML = '&#x1F41D;'
           } else {
             console.error('Beehive icon element lost before cooldown finished?') // <<< ADD LOG
           }
-          console.log('Beehive ready flag set to true!')
+          consoleLog('Beehive ready flag set to true!')
         }, BEEHIVE_COOLDOWN) // Timer runs for 15 seconds
         // ---------------------------------------------
 
@@ -1698,7 +1698,7 @@
           // Add slight randomness to start position to avoid perfect stack
           const beeStartX = startX + (Math.random() - 0.5) * 10
           const beeStartY = startY + (Math.random() - 0.5) * 10
-          console.log(
+          consoleLog(
             `Creating bee ${i} at: X=${beeStartX.toFixed(2)}, Y=${beeStartY.toFixed(2)}`,
           ) // <<< LOG START COORDS
           const bee = new Bee(beeStartX, beeStartY)
@@ -1708,13 +1708,11 @@
 
         BEE_LAUNCH_SOUND.currentTime = 0
         BEE_LAUNCH_SOUND.play()
-
-        console.log(`Launched ${swarmSize} bees.`)
       }
 
       // Function to move all active bees and check collisions
       function moveBees() {
-        // console.log(`moveBees called. Paused=${isGamePaused}, BeeCount=${bees.length}`); // Keep logs minimal now
+        // consoleLog(`moveBees called. Paused=${isGamePaused}, BeeCount=${bees.length}`); // Keep logs minimal now
         if (isGamePaused) return
 
         // --- Target Acquisition Phase ---
@@ -1739,7 +1737,7 @@
           bee.targetBall = target
           bee.state = 'attacking' // Switch state to attacking
           target.isTargetedByBee = true
-          console.log(
+          consoleLog(
             `Bee ${bee.element?.id || 'N/A'} assigned to target Ball.`,
           )
 
@@ -1774,7 +1772,7 @@
       // <<< ADDED: Function to fire a rocket >>>
       function fireRocket() {
         if (isGamePaused || rocketsRemaining <= 0) {
-          console.log(
+          consoleLog(
             `Cannot fire rocket. Paused=${isGamePaused}, Remaining=${rocketsRemaining}`,
           )
           // Optional: Add a sound effect for empty/fail?
@@ -1787,7 +1785,7 @@
         } else {
           console.warn('rocketCountElement not cached, cannot update display.')
         }
-        console.log(`Firing rocket! Remaining: ${rocketsRemaining}`)
+        consoleLog(`Firing rocket! Remaining: ${rocketsRemaining}`)
 
         // Position rocket start at the player's current visual center
         const playerRect = player.getBoundingClientRect()
@@ -1943,7 +1941,7 @@
             if (rocketTopEdge < gameAreaTop) {
               rocket.destroy()
               activeRockets.splice(i, 1)
-              console.log('Rocket removed (off-screen).')
+              consoleLog('Rocket removed (off-screen).')
             }
           }
           // --------------------------------------
@@ -2150,6 +2148,11 @@
             explosionContainer.parentNode.removeChild(explosionContainer)
           }
         }, 600)
+      }
+      function consoleLog(textToLog) {
+        if (cTEST_MODE) {
+            console.Log(textToLog)
+        }
       }
     </script>
   </body>
